@@ -1,5 +1,5 @@
 ---
-title:NFS总结
+title: NFS总结
 date: 2017-08-25 16:13:04
 tags:
 - Linux
