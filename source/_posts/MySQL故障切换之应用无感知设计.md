@@ -1,5 +1,5 @@
 ---
-title: 事务状态在数据库中间件中的应用
+title: MySQL故障切换之应用无感知设计
 date: 2018-03-12 11:08:13
 tags:
 - MySQL
@@ -7,13 +7,13 @@ categories:
 - MySQL
 ---
 ## 1. 简介
-在数据库中间件读写分离应用场景中，如何保证底层数据库出现故障节点的时，中间件可以快速断开或迁移数据库连接，让用户无感知。在MySQL数据库中，提供了一个session_track_transaction_info参数，使上面的问题，有了解决方案。
-因为官方文档上没有对该参数的说明部分，所以我通过专门通过看代码以及做实验的方式，整理一下关于这个参数的内容。
+在数据库中间件读写分离应用场景中，如何保证底层数据库出现故障节点的时，中间件可以快速断开或迁移数据库连接，让用户无感知。
+在MySQL数据库中，提供了一个session_track_transaction_info参数来提供解决方案。
+因为官方文档上没有对该参数的说明，本文专门介绍该参数的可选值并验证了实际的影响。
 
 ## 2. session_track_transaction_info参数
 ### 2.1 参数介绍
 MySQL5.7中，可以通过设置session_track_transaction_info变量来跟踪事务的状态。
-MySQL官方文档中对该参数没有文档说明。
 * 该参数存在global以及session两个级别，可以动态修改。
 * 该参数可以设置的值为0（默认OFF），1,2
 ```
@@ -26,15 +26,18 @@ enum enum_session_track_transaction_info {
   TX_TRACK_CHISTICS  = 2   ///< track status and characteristics
 };
 ```
-看代码中，该参数允许设置的值为0，1，2
+
+该参数允许设置的值为0，1，2
 * 设置为0的时候，`show variables like '%session_track_transaction_info%'`显示为`OFF`，表示不开启事务状态跟踪
 * 设置为1的时候，`show variables like '%session_track_transaction_info%'`显示为`STATE`，表示跟踪事务状态
 * 设置为2的时候，`show variables like '%session_track_transaction_info%'`显示为`CHARACTERISTICS`，表示跟踪事务状态和语句
-### 2.2 测试记录
-开启session_track_transaction_info参数的时候，在数据库中无法直接查询到事务状态记录。根据[WL#4797](https://dev.mysql.com/worklog/task/?id=4797)，MySQL是将事务状态跟踪的信息记录到了每一个Query请求返回的OK packet中。所以通过抓包的方式查看事务状态信息。具体的抓包文件见附件。
-MySQL数据包解析可以参照文档《MySQL主备复制网络协议解析》
 
-#### 2.2.1 MySQL如何封装OK packet
+### 2.2 参数设置影响
+开启session_track_transaction_info参数的时候，在数据库中无法直接查询到事务状态记录。
+根据[WL#4797]，MySQL是将事务状态跟踪的信息记录到了每一个Query请求返回的OK packet中。
+可以通过抓包的方式查看事务状态信息。
+
+#### 2.2.1 原生MySQL OK packet格式
 **OK Packet的数据包格式定义**
 | 类型 | 名字 | 描述 |
 | ----- | ----- | ------ |
@@ -52,7 +55,7 @@ MySQL数据包解析可以参照文档《MySQL主备复制网络协议解析》
 MySQL-5.7.19代码中封装OK packet的代码部分在protocol_classic.cc文件中的`net_send_ok()`函数中。
 
 
-#### 2.2.3 session_track_transaction_info 显示信息
+#### 2.2.3 session_track_transaction_info 额外补充信息
 session_track_transaction_info使用8个字符位来表示事务的信息，并且这8个字符信息是保存在COM_QUERY请求语句的返回数据包中的（客户端执行一条语句，都会被封装成MySQL协议中的COM_QUERY请求发送给server端，server端解析执行之后将结果封装在数据包中返回）。
 | 位置 | 表示信息 | 具体代表含义 |
 | ----- | ---------- | ---------------- |
@@ -64,7 +67,9 @@ session_track_transaction_info使用8个字符位来表示事务的信息，并�
 | Place 6 | unsafe statement | s 当前事务中使用了不安全的语句，类似于UUID() <br> _ 没有使用类似的不安全的语句 |
 | Place 7 | result-set | S 发送给了客户端一个结果集 <br> _ 没有结果集 | 
 | Place 8 | LOCKed TABLES | L 表被显式的通过LOCK TABLES 语句上锁了 <br> _ 当前事务中没有锁表 | 
-#### 2.2.2 session_track_transaction_info = 0
+
+#### 2.2.2 session_track_transaction_info = 0时OK packet格式解析
+session_track_transaction_info=0表示不记录事务信息，所有在server端返回的数据包中没有事务状态跟踪信息。
 ```
 ## session_track_transaction_info = 0
 客户端执行begin；封装的数据包
@@ -103,8 +108,10 @@ server端返回的数据库包：response
 01 # sequence_id
 00000002000000
 ```
-session_track_transaction_info=0表示不记录事务信息，所有在server端返回的数据包中没有事务状态跟踪信息。
-#### 2.2.4 session_track_transaction_info = 1
+
+
+
+#### 2.2.4 session_track_transaction_info = 1时OK packet格式解析
 ```
 ## session_track_transaction_info = 1
 客户端执行begin；封装的数据包
@@ -170,7 +177,9 @@ server端返回的数据包：response
 # Place 8: 5f //没有锁表
 
 ```
-#### 2.2.5 session_track_transaction_info = 2
+
+#### 2.2.5 session_track_transaction_info = 2时OK packet格式解析
+
 将session_track_transaction_info参数设置为2的时候，会显示更加详细的事务状态信息。
 ```
 客户端执行begin；封装的数据包
@@ -184,7 +193,7 @@ server端返回的数据包：response
 01 # sequence_id
 000000034000000020050908
 54 5f 5f 5f 5f 5f 5f 5f # 事务状态信息 T_______
-0413125354415254205452414e53414354494f4e3b # START TRANSACTION;
+0413125354415254205452414e53414354494f4e3b # START TRANSACTION;
 # Place 1: 54 //显式的开启一个事务
 # Place 2: 5f //当前事务中没有读取非事务性存储引擎的表
 # Place 3: 5f //当前事务中没有读取事务性存储引擎的表
@@ -240,11 +249,7 @@ server端返回的数据包：response
 ```
 
 ## 3. 总结
-通过上面的实验中，我们可以看到，在设置该参数之后，我们可以在MySQL的返回数据包中获取到当前连接的事务状态信息。那么我们就可以将这一特性应用到数据库中间件上，使中间件在节点故障的情况下，能够自动迁移连接，减少对用户影响。但是，这在实现上存在一定难度，因为这些连接的事务状态信息是被保存在返回的数据包中。我们想要利用这些事务状态信息的话，需要对MySQL的连接程序最一定的修改。
+在设置session_track_transaction_info参数之后，在MySQL的返回数据包中可以获取到当前连接的事务状态信息。
+在数据库中间件上，利用这一特性，使得MySQL故障的情况下，能够自动迁移连接，减少对用户影响。
+在部分场景下能够达到底层MySQL节点故障切换了，对应用来说可以无感知的切换过去。
 
-
-
-## 4. 参考文档
-* 淘宝内核月报——《MySQL·引擎特性·MySQL内核对读写分离的支持》：http://mysql.taobao.org/monthly/2018/01/02/
-* WL#663：Detect transaction boundaries: https://dev.mysql.com/worklog/task/?spm=5176.100239.blogcont221.10.57969ea05YrWEE&id=6631
-* WL#4797:Extending protocol's OK packet：https://dev.mysql.com/worklog/task/?id=4797
