@@ -39,6 +39,7 @@ enum enum_session_track_transaction_info {
 
 #### 2.2.1 原生MySQL OK packet格式
 **OK Packet的数据包格式定义**
+
 | 类型 | 名字 | 描述 |
 | ----- | ----- | ------ |
 | int<1> | 头部 | 用0x00或者0xFE表示该数据包是一个OK Packet |
@@ -57,6 +58,7 @@ MySQL-5.7.19代码中封装OK packet的代码部分在protocol_classic.cc文件�
 
 #### 2.2.3 session_track_transaction_info 额外补充信息
 session_track_transaction_info使用8个字符位来表示事务的信息，并且这8个字符信息是保存在COM_QUERY请求语句的返回数据包中的（客户端执行一条语句，都会被封装成MySQL协议中的COM_QUERY请求发送给server端，server端解析执行之后将结果封装在数据包中返回）。
+
 | 位置 | 表示信息 | 具体代表含义 |
 | ----- | ---------- | ---------------- |
 | Place 1 | Transaction | T 显式的开启一个事务 <br> I 隐式的开启一个事务（@autocommit=0）<br> _ 没有活跃的事务 |
