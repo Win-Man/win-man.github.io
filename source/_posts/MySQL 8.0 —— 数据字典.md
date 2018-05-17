@@ -36,7 +36,7 @@ MySQL8.0开始支持原子DDL操作，一个原子DDL操作，具体的操作内
 在8.0之前版本中，innodb_read_only参数可以阻止对InnoDB存储引擎表的create和drop等更新操作。但是在MySQL8.0中，开启innodb_read_only参数阻止了所有存储引擎的这些操作。create或者drop表的操作都需要更新数据字典表，8.0中这个数据字典表都改为了InnoDB存储引擎，所以对于数据字典表的更新会失败，从而导致各存储引擎create和drop表失败。同样的像`ANALYZE TABLE`和`ALTER TABLE tbl_name ENGINE=engine_name`这种操作也会失败，因为这些操作都要去更新数据字典表。
 ### 3.4、mysqldump mysqlpump导出的内容影响
 MySQL8.0之后，在使用mysqldump和mysqlpump导出数据时候，与之前有了一些不同，主要是以下几点：
-* 之前版本的mysqldump和mysqlpump可以导出mysql系统库中的所有表的内容，8.0之后，只能导出mysql系统库中没有数据的数据字典表。
+* 之前版本的mysqldump和mysqlpump可以导出mysql系统库中的所有表的内容，8.0之后，只能导出mysql系统库中的非data dictionary table。（data dictionary table内容可以参照：https://dev.mysql.com/doc/refman/8.0/en/system-database.html#system-database-data-dictionary-tables）
 * 之前版本当使用--all-databases参数导出数据的时候，不加--routines和--events选项也可以导出触发器、存储过程等信息，因为这些信息都存放于proc和event表中，导出所有表即可导出这些信息。但是在8.0中，proc表和event表都不再使用，并且定义触发器、存储过程的数据字典表不会被导出，所以在8.0中使用mysqldump、mysqlpump导出数据的时候，如果需要导出触发器、存储过程等内容，一定需要加上--routines和--events选项。
 * 之前版本中--routines选项导出的时候，备份账户需要有proc表的SELECT权限，在8.0中需要对所有表的SELECT权限
 * 之前版本中，导出触发器、存储过程可以同时导出触发器、存储过程的创建和修改的时间戳，8.0中不再支持。
