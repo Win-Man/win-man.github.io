@@ -60,7 +60,7 @@ categories:
 ## 最后
 总而言之，这个新特性保证了主库和从库之间的数据完整性、一致性，并不会带来任何副作用以及性能印象。我强烈推荐你去尝试该特性。
 
-```
+
 A special thanks to Mr. Zhenxing Zhou a community user who contributed a patch implementing a similar idea based on MySQL 5.5. Even though we did not take his patch (the 5.7 codebase changed quite a lot compared to 5.5), his feature request was yet another source of motivation and inspiration.
-```
+
 
