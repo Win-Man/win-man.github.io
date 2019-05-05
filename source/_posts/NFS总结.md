@@ -181,3 +181,8 @@ NFS文件系统的权限访问的原则是：**服务器端会以客户端的用
 
 
 
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

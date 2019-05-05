@@ -203,3 +203,7 @@ public class ConstructReference {
 ## 总结
 
 　　方法引用的出现，是为了更加简洁的运用 Lambda 表达式，让我们的代码更加清晰明了。做一个优雅写代码的码农。
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

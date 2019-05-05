@@ -175,3 +175,8 @@ DROP RESOURCE GROUP Batch;
 Resource Group是MySQL在8.0中增加的资源管理的特性，从一个DBA的角度，可以更加灵活、便捷的管理数据库使用的资源，这是一个令人眼前一亮的特性。Oracle在10g的时候已经推出了Resource Manager的特性，MySQL的Resource Group目前还很简单只能控制CPU的资源，但是相信后续Resource Group能操控的资源类型会越来越多。期待MySQL8.0早日成为一个成熟稳定的版本。
 
 
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

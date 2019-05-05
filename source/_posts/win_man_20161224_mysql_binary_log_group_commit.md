@@ -77,3 +77,8 @@ categories:
 3. [Binary Log Group Commit in MySQL 5.6](http://mysqlmusings.blogspot.jp/2012/06/binary-log-group-commit-in-mysql-56.html)
 4. 《MySQL技术内幕》
 
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

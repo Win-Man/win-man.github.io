@@ -541,3 +541,8 @@ lrwxrwxrwx. 1 root      19 Dec 27 15:30 libcrypto.so.10 -> libcrypto.so.1.0.1e
 ```
 所以galeta集群在进行sst的时候是通过默认的的rsync方式同步的，但是在这种方式下，不能自定义innodb_data_home_dir和innodb_log_home_dir,这是MariaDB Galera的BUG，如果要自定义这两个参数，可以选择xtrabackup的方式。
 wsrep_sst_method可以指定为mysqldump,xtrabackup,rsync三种，xtrabackup的方式锁表时间最短
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

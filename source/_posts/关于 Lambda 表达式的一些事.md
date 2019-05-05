@@ -316,3 +316,8 @@ Function<String,String> f2 = (String s) -> s.substring(4);
 ## 5. 小结
 
 　　啰啰嗦嗦的讲 Lambda 的基本概念讲完了，最后只想表明一个观点：实践出真知。光看懂 Lambda 表达式的概念，不在实际中使用，这一切都是空谈，Lambda 的出现就是为了简化我们的代码，将它用到平时的代码中去才能说是真正掌握了知识。
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

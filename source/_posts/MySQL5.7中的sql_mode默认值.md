@@ -143,3 +143,8 @@ INSERT或者UPDATE语句中，如果数据被0除，则出现警告（非strict 
 
 
 
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

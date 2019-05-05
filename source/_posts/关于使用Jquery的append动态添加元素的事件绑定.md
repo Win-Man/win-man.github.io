@@ -70,3 +70,8 @@ categories:
 	})
 ```
 　　其中，$('#button-test')是一直存在的页面元素，click是要绑定的事件类型，'.select'是选择器，在'#button-test'的范围内进行选择，function是绑定的事件
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

@@ -51,3 +51,8 @@ CATS vs. FIFO in TPS, mean latency and 95th percentile (up to 5.05x improvement)
 MySQL是全球第一个使用这种最先进的CATS事务调度算法的数据库。这个算法解决了数据库在遇到高压力情况下性能急剧下降的问题，这个也是MySQL 8.0主要想要达到的目标。
 CATS算法是针对当事务并发超过32的情况，这个数值没有参数配置，是通过经验设置的。
 
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

@@ -138,3 +138,7 @@ categories:
 　　可以看到有 `@Example` 注解的方法都输出了相应的内容，没有对 `name` 进行赋值的注解也输出了默认的内容，没有 `@Example` 注解的部分并没有相应的输出。
 
 　　以上，就是关于 Java 注解入门的一些基础知识，深入的话还有好多内容可以挖。
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

@@ -64,3 +64,8 @@ categories:
 A special thanks to Mr. Zhenxing Zhou a community user who contributed a patch implementing a similar idea based on MySQL 5.5. Even though we did not take his patch (the 5.7 codebase changed quite a lot compared to 5.5), his feature request was yet another source of motivation and inspiration.
 
 
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

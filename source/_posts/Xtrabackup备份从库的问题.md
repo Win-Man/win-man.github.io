@@ -194,3 +194,8 @@ Master_SSL_Verify_Server_Cert: No
 * XtraBackup备份从库的时候，利用备份恢复数据之后，第一次启动数据库的时候，不会启动I/O线程和SQL线程
 * Xtrabackup备份从库，虽然保存了原先slave中chang master to的信息，但是不能直接start slave；需要reset slave all之后重新指定主库信息
 * Xtrabackup备份从库，不会备份GTID_PURGED的信息，需要恢复的时候，自己指定
+
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)

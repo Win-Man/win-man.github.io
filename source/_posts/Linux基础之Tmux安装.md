@@ -75,3 +75,7 @@ $ cp /usr/local/tmux/bin/tmux /usr/local/bin/
 // 将 libevent-2.0.so.5 移动到 /usr/lib64 下（64位操作系统） | /usr/lib 下（32位操作系统）
 $ cp /usr/local/libevent/lib/libevent-2.0.so.5 /usr/lib64
 ```
+> 博客地址：https://win-man.github.io/  
+> 公众号：欢迎关注  
+
+![](https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568)
