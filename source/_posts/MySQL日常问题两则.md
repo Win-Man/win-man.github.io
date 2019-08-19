@@ -179,6 +179,7 @@ Query OK, 0 rows affected, 1 warning (0.00 sec)
 * MySQL中存储emoji不仅需要将表结构中字段字符集设置为utf8mb4，还需要考虑连接字符集的问题
 * 建议数据库使用5.7.22及以上版本，并且sql_mode开启严格模式，这样当数据出现异常可以及时发现
 * 在sql_mode开启严格模式的情况下，应用端连接数据库也需要调整为utf8mb4字符集才可以正常插入emoji表情
+* 建议将默认字符集设置为utf8mb4，做到库、表、字段字符集都统一，utf8mb4是utf8的超集，能兼容更多的字符，而且在MySQL-8.0中已经将utf8mb4设置为了默认的字符集。
 
 > 博客地址：https://win-man.github.io/  
 > 公众号：欢迎关注  
