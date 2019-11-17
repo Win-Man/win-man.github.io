@@ -1,5 +1,5 @@
 ---
-title: MySQL Binlog（一）——MySQL复制原理基础
+title: MySQL Binlog(一)——MySQL复制原理基础
 date: 2019-11-17 09:35:13
 tags:
 - MySQL
@@ -7,7 +7,7 @@ tags:
 categories:
 - MySQL
 ---
-# MySQL Binlog（一）——MySQL复制原理基础
+# MySQL Binlog(一)——MySQL复制原理基础
 
 ## 前言
 
