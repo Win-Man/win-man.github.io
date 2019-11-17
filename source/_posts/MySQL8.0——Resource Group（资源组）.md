@@ -3,7 +3,6 @@ title: MySQL8.0——Resource Group
 date: 2018-07-04 17:12:13
 tags:
 - MySQL
-- 8.0
 categories:
 - MySQL
 ---

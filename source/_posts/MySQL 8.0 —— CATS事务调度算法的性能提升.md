@@ -5,7 +5,6 @@ tags:
 - MySQL
 categories:
 - MySQL
-- 8.0
 ---
 
 > 原文地址：https://mysqlserverteam.com/contention-aware-transaction-scheduling-arriving-in-innodb-to-boost-performance/

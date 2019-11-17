@@ -2,11 +2,9 @@
 title: 关于 Lambda 表达式的一些事
 date: 2016-09-24 20:46:25
 tags:
-- Java8
 - Lambda
 categories:
 - Java
-- 基础知识
 ---
 
 >- 文章来源：itsCoder 的 [WeeklyBolg](https://github.com/itsCoder/weeklyblog) 项目

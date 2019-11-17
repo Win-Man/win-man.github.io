@@ -3,9 +3,9 @@ title: MySQL 8.0 —— 数据字典
 date: 2018-05-14 11:08:13
 tags:
 - MySQL
+- 数据字典
 categories:
 - MySQL
-- 8.0
 ---
 
 ##  1、简介

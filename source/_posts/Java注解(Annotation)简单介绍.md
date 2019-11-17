@@ -5,7 +5,6 @@ tags:
 - 注解
 categories:
 - Java
-- 基础知识
 ---
 
 >- 文章来源：itsCoder 的 [WeeklyBolg](https://github.com/itsCoder/weeklyblog) 项目

@@ -3,8 +3,6 @@ title: MySQL日常问题两则
 date: 2019-08-12 11:08:13
 tags:
 - MySQL
-- emoji
-- DDL
 categories:
 - MySQL
 ---

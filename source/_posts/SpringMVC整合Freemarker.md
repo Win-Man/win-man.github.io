@@ -7,7 +7,6 @@ tags:
 - FreeMarker
 categories:
 - Java
-- 环境配置
 ---
 
 ## 添加jar包
