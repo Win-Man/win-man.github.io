@@ -8,7 +8,7 @@ categories:
 - MySQL
 ---
 
-[toc]
+# MySQL Binlog(五)——MySQL常见binlog event解析（上）
 
 ## 前言
 
