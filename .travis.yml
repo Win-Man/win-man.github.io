@@ -4,6 +4,9 @@ node_js:
 branches:
   only:
   - dev
+cache:
+  directories:
+  - node_modules
 before_install:
 - export TZ='Asia/Shanghai'
 - npm install -g hexo
