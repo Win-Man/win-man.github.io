@@ -4,9 +4,6 @@ node_js:
 branches:
   only:
   - dev
-env:
-  global:
-    secure: JEWjkKHlJooEFw1HUoDT2hgKVUYVsJErlrxLay1hEao/3bmTijGBy0sRyYp0eUa5BBrTtYdDC7aXTaZOOhcmdrm+DOG2ns1OucLvlm94YJSUTUwCIWZHaKLljRr6suZOLhLqExplWb+1NvlaM6aLHX7Y9vNp3zY71kL79+EQX5yT5spycoFdVeDm0P/fESfNmtNeOI63NAsC5MJP4x2t3YNvd6J6PHa5+O/xbpklyktFjnadYI106Ev6jmAwOQ+G3eFAvNHr4E7Nx0550bzIJqNYAVEg7ISko5Xox+5ZIn5kaNl66d23MhjCklAyKlaxycUBzSCSbmxY6gVdDWAw76qGm5ciV04desf6rF1FXNKbWDQHDHOU9XjPTjcPMC7dMivaH+qdjnDImU+jMqwXFtozrH3qOEZMnK7GWYnscmyEjppaKGtxLNnaL2BLn0+eolRQxJt3XGYAY6SLDHyHcDN+0oszj4kW1wfaoIHSGv14u1RSIENUSbqJhXb3OdWzl58JJRfKitZ0ZB7jVtMt6ZcAb09HPDyXlQp/PgFlj+K3nXf97xWElzLfznDBtDPZXkrGV674oVz8lUavztlYiXN/7+Ejzo9gsVXuMjSseZPa5yO7dWTRouasyQKU5K6YL05L+PXA4JtbCrqml2F6T2QqZ35+9HghCRJCrB89o8E= 
 before_install:
 - export TZ='Asia/Shanghai'
 - npm install -g hexo
@@ -14,7 +11,8 @@ before_install:
 before_script:
 - git config --global user.name "Win-Man"
 - git config --global user.email 825895587@qq.com
-- sed -i'' "s~git@github.com:Win-Man/win-man.github.io.git~https://${REPO_TOKEN}:x-oauth-basic@github.com/Win-Man/win-man.github.io.git~" _config.yml
+- npm install -g hexo-cli
+- export HEXO_DEPLOYER_REPO=https://$REPO_TOKEN@github.com/Win-Man/win-man.github.io.git
 install:
 - npm install
 script:
