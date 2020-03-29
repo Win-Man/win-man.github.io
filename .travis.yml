@@ -11,7 +11,6 @@ before_install:
 - export TZ='Asia/Shanghai'
 - npm install -g hexo
 - npm install -g hexo-cli
-- export HEXO_DEPLOYER_REPO=https://${REPO_TOKEN}@github.com/Win-Man/win-man.github.io.git
 before_script:
 - git config --global user.name "Win-Man"
 - git config --global user.email 825895587@qq.com
