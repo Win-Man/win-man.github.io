@@ -71,9 +71,9 @@ Error: run `/root/.tiup/components/cluster/v1.0.0/cluster` (wd:/root/.tiup/data/
 
 参考官方文档 [PD Recover 使用文档](https://docs.pingcap.com/zh/tidb/v4.0/pd-recover#pd-recover-%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3) ,通过 `pd-recovery` 工具恢复集群。
 
-根据文档内容主要分为 3 个步骤：1. 找到 cluster id 2. 找到当前最大 alloc id 3. 通过 pd-recovery 恢复 pd 集群
+根据文档内容主要分为 3 个步骤：1. 找到 `cluster id` 2. 找到当前最大 `alloc id` 3. 通过 pd-recovery 恢复 pd 集群
 
-这边的话，都是通过 PD 日志来查找 cluster id 和 alloc id。
+这边的话，都是通过 PD 日志来查找 `cluster id` 和 `alloc id`。
 
 **操作步骤**
 
@@ -95,7 +95,7 @@ Error: run `/root/.tiup/components/cluster/v1.0.0/cluster` (wd:/root/.tiup/data/
 [2020/06/11 01:48:35.936 +08:00] [INFO] [server.go:336] ["init cluster id"] [cluster-id=6823755660393880966]
 ```
 
-2. 查找当前最大的 alloc id ，因为 pd-recovery 去恢复的时候需要指定一个比当前最大的 alloc id 更大的 alloc id，所以需要对所有的 pd 节点日志进行查找
+2. 查找当前最大的 `alloc id` ，因为 pd-recovery 去恢复的时候需要指定一个比当前最大的 `alloc id` 更大的 `alloc id`，所以需要对所有的 pd 节点日志进行查找
 
 ```
 pd-1
@@ -161,4 +161,4 @@ tiup cluster display t11
 ```
 
 **注意**
-> 通过 tiup 部署的 TiDB 集群需要用户自己下载 pd-recovery 工具，可以通过 http://download.pingcap.org/tidb-{{ tidb_version }}-linux-amd64.tar.gz 链接进行下载
+> 通过 tiup 部署的 TiDB 集群需要用户自己下载 pd-recovery 工具，可以通过 `http://download.pingcap.org/tidb-{{ tidb_version }}-linux-amd64.tar.gz` 链接进行下载
