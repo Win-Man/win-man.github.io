@@ -41,5 +41,4 @@ jobs:
       - name: Generate and deploy
         run: |
           hexo clean
-          hexo generate
           hexo deploy
