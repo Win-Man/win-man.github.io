@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="什么是NFS，为什么要NFSNFS（Network File System）这个网络文件系统，最大的功能是通过网络，使得在不同的机器之间共享文件。通过NFS可以将另一台机器的某个目录挂载到本机的某个目录下，在使用的时候挂载过来的目录就像在本地一样。极大的方便了多台服务器之间的文件共享。 什么是RPC在提到NFS服务的时候，都会提到RPC服务，那么什么是RPC服务，为什么需要RPC服务呢。首先RPC">
+<meta name="keywords" content="Linux">
+<meta property="og:type" content="article">
+<meta property="og:title" content="NFS总结">
+<meta property="og:url" content="http://yoursite.com/2017/08/25/NFS总结/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="什么是NFS，为什么要NFSNFS（Network File System）这个网络文件系统，最大的功能是通过网络，使得在不同的机器之间共享文件。通过NFS可以将另一台机器的某个目录挂载到本机的某个目录下，在使用的时候挂载过来的目录就像在本地一样。极大的方便了多台服务器之间的文件共享。 什么是RPC在提到NFS服务的时候，都会提到RPC服务，那么什么是RPC服务，为什么需要RPC服务呢。首先RPC">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/nfs.png">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="NFS总结">
+<meta name="twitter:description" content="什么是NFS，为什么要NFSNFS（Network File System）这个网络文件系统，最大的功能是通过网络，使得在不同的机器之间共享文件。通过NFS可以将另一台机器的某个目录挂载到本机的某个目录下，在使用的时候挂载过来的目录就像在本地一样。极大的方便了多台服务器之间的文件共享。 什么是RPC在提到NFS服务的时候，都会提到RPC服务，那么什么是RPC服务，为什么需要RPC服务呢。首先RPC">
+<meta name="twitter:image" content="http://oc4wmeyj8.bkt.clouddn.com/nfs.png">
+
+<link rel="canonical" href="http://yoursite.com/2017/08/25/NFS总结/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>NFS总结 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/08/25/NFS总结/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          NFS总结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-08-25 16:13:04" itemprop="dateCreated datePublished" datetime="2017-08-25T16:13:04+00:00">2017-08-25</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="什么是NFS，为什么要NFS"><a href="#什么是NFS，为什么要NFS" class="headerlink" title="什么是NFS，为什么要NFS"></a>什么是NFS，为什么要NFS</h2><p>NFS（Network File System）这个网络文件系统，最大的功能是通过网络，使得在不同的机器之间共享文件。通过NFS可以将另一台机器的某个目录挂载到本机的某个目录下，在使用的时候挂载过来的目录就像在本地一样。极大的方便了多台服务器之间的文件共享。</p>
+<h2 id="什么是RPC"><a href="#什么是RPC" class="headerlink" title="什么是RPC"></a>什么是RPC</h2><p>在提到NFS服务的时候，都会提到RPC服务，那么什么是RPC服务，为什么需要RPC服务呢。<br>首先RPC是Remote Procedure Call的缩写，及远程过程调用。其次关于为什么要RPC服务是因为，NFS服务在启动的时候对于端口的选择是随机的，NFS在启动的时候回随机选择小于1024的端口进行数据的传输。那么在客户端连接到NFS服务器的时候，怎么知道应该通过哪个端口进行连接呢。这个时候就需要RPC服务出现了，RPC的主要功能就是记录每个NFS服务所对应的端口号，并将对应的端口号发送给客户端，客户端根据获得的端口号进行连接。<br><strong>客户端连接NFS服务的过程：</strong></p>
+<ol>
+<li>客户端首先向NFS服务所在的服务器的RPC服务发起请求，RPC服务的端口固定为111</li>
+<li>RPC服务在接收到客户端的请求之后，找到注册的NFS服务所对应的端口号，并将端口号发送给客户端</li>
+<li>客户端根据获取到NFS端口号进行连接</li>
+</ol>
+<h2 id="配置NFS步骤"><a href="#配置NFS步骤" class="headerlink" title="配置NFS步骤"></a>配置NFS步骤</h2><ul>
+<li>环境介绍<ul>
+<li>CentOS6.6</li>
+</ul>
+</li>
+</ul>
+<h3 id="NFS主要软件结构"><a href="#NFS主要软件结构" class="headerlink" title="NFS主要软件结构"></a>NFS主要软件结构</h3><ul>
+<li>/etc/exports NFS的主要配置文件，在该文件中定义NFS输出的目录、权限等属性</li>
+<li>/usr/sbin/exportfs 管理NFS共享资源的命令，在NFS的server端使用</li>
+<li>/usr/sbin/showmount 查询NFS共享资源的命令，在client端使用</li>
+<li>/var/lib/nfs/etab NFS的日志文件，记录了NFS共享出来的目录的完整权限设置值</li>
+<li>/var/lib/nfs/xtab NFS连接信息的日志文件，记录了曾经链接到此NFS服务器的相关客户端的数据</li>
+</ul>
+<h3 id="etc-exports配置文件介绍"><a href="#etc-exports配置文件介绍" class="headerlink" title="/etc/exports配置文件介绍"></a>/etc/exports配置文件介绍</h3><p>配置文件中的格式：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&lt;输出目录&gt; [客户端1(权限)] [客户端2(权限)] ...</span><br></pre></td></tr></table></figure></p>
+<ul>
+<li><p>输出目录<br>指定共享的文件目录</p>
+</li>
+<li><p>客户端<br>指定可以访问共享资源的客户端</p>
+<ul>
+<li>指定IP的方式：192.168.1.1</li>
+<li>指定网段的方式 192.168.1.0/24或者192.168.1.0/255.255.255.0</li>
+<li>指定主机名的方式 node1，但是这个主机名必须在记录在/etc/hosts文件内，需要能解析到对应的ip</li>
+<li>通配符的方式 <em>表示所有的主机，node</em>主机名通配</li>
+</ul>
+</li>
+<li><p>权限</p>
+<ul>
+<li>rw/ro 指定文件是可读写（read-write）的还是只读（read-only）的</li>
+<li>sync/async 对目录中的数据进行更改的话，更改会同步写到硬盘还是只写到内存直接写到硬盘</li>
+<li>no_root_squash 当客户端使用root账户连接的时候，不转化为匿名用户</li>
+<li>root_squash 当客户端使用root账户连接的会后，转化为匿名用户</li>
+<li>all_squash 当客户端连接的时候，无论使用什么用户进行连接，都会被转换为匿名用户</li>
+<li>anonuid 指定匿名用户的UID</li>
+<li>anongid 指定匿名用户的GID</li>
+</ul>
+</li>
+</ul>
+<h3 id="NFS-server端配置"><a href="#NFS-server端配置" class="headerlink" title="NFS server端配置"></a>NFS server端配置</h3><ul>
+<li><p>检查服务器是否安装了nfs-util和rpcbind两个包</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@d146bbc8-94a2-42c4-8eaa-3fb3264fd176 ~]# rpm -qa | grep nfs</span><br><span class="line">nfs-utils-1.2.3-54.el6.x86_64</span><br><span class="line">nfs-utils-lib-1.1.5-9.el6.x86_64</span><br><span class="line">[root@d146bbc8-94a2-42c4-8eaa-3fb3264fd176 ~]# rpm -qa | grep rpcbind</span><br><span class="line">rpcbind-0.2.0-11.el6.x86_64</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>填写/etc/exports配置文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /nfs/&#123;test1,test2,test3,test4,test5&#125;</span><br><span class="line">vim /etc/exports</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/nfs.png" alt><br>exports配置文件中都有默认权限配置，如果我们想查看默认的配置是什么，可以查看<code>/var/lib/nfs/etab</code>文件，该文件中完整的记录了NFS共享资源的所有配置<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">/nfs/test2	10.10.30.247(rw,sync,wdelay,hide,nocrossmnt,secure,root_squash,no_all_squash,no_subtree_check,secure_locks,acl,anonuid=65534,anongid=65534)</span><br><span class="line">/nfs/test1	10.10.30.247(rw,sync,wdelay,hide,nocrossmnt,secure,root_squash,no_all_squash,no_subtree_check,secure_locks,acl,anonuid=65534,anongid=65534)</span><br><span class="line">/nfs/test3	10.10.30.0/24(rw,sync,wdelay,hide,nocrossmnt,secure,root_squash,no_all_squash,no_subtree_check,secure_locks,acl,anonuid=65534,anongid=65534)</span><br><span class="line">/nfs/test2	*(ro,sync,wdelay,hide,nocrossmnt,secure,root_squash,no_all_squash,no_subtree_check,secure_locks,acl,anonuid=65534,anongid=65534)</span><br></pre></td></tr></table></figure></p>
+<ul>
+<li><p>启动RPC服务</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[root@d146bbc8-94a2-42c4-8eaa-3fb3264fd176 ~]# /etc/init.d/rpcbind start</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>启动NFS服务</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@d146bbc8-94a2-42c4-8eaa-3fb3264fd176 ~]# /etc/init.d/nfs start</span><br><span class="line">Starting NFS services:                                     [  OK  ]</span><br><span class="line">Starting NFS quotas:                                       [  OK  ]</span><br><span class="line">Starting NFS mountd:                                       [  OK  ]</span><br><span class="line">Starting NFS daemon:                                       [  OK  ]</span><br><span class="line">Starting RPC idmapd:                                       [  OK  ]</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>修改/etc/exports文件<br>如果我们在启动NFS服务之后，又修改了 <code>exports</code> 文件的话怎么办，是不是需要重新启动NFS服务才能使的这些配置生效，答案当然是否定的，这样多麻烦。我们有 <code>exportfs</code> 命令。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">exportfs [-aruv]</span><br><span class="line"></span><br><span class="line">options:</span><br><span class="line"> -a:全部挂载或卸载</span><br><span class="line"> -r:重新挂载/etc/exports配置文件中的信息</span><br><span class="line"> -u:卸载某一目录</span><br><span class="line"> -v:将内容显示输出</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h3 id="client端配置"><a href="#client端配置" class="headerlink" title="client端配置"></a>client端配置</h3><ul>
+<li>通过showmount命令查看NFS共享资源的情况<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@6a192e7f-a43d-4b57-9573-ca740e3b5f0d ~]# showmount -e 10.10.30.250</span><br><span class="line">Export list for 10.10.30.250:</span><br><span class="line">/nfs/test3 10.10.30.0/24</span><br><span class="line">/nfs/test2 (everyone)</span><br><span class="line">/nfs/test1 10.10.30.247</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">showmount [-ae] [hostname|IP]</span><br><span class="line"></span><br><span class="line">options:</span><br><span class="line"> -a:显示当前主机与客户端的NFS连接情况</span><br><span class="line"> -e:显示指定NFS服务器的共享资源情况</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p>挂载NFS目录</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@6a192e7f-a43d-4b57-9573-ca740e3b5f0d ~]# mkdir -p /nfs/local/&#123;test1,test2,test3&#125;</span><br><span class="line">[root@6a192e7f-a43d-4b57-9573-ca740e3b5f0d ~]# mount 10.10.30.250:/nfs/test1 /nfs/local/test1</span><br><span class="line">[root@6a192e7f-a43d-4b57-9573-ca740e3b5f0d ~]# mount 10.10.30.250:/nfs/test2 /nfs/local/test2</span><br><span class="line">[root@6a192e7f-a43d-4b57-9573-ca740e3b5f0d ~]# mount 10.10.30.250:/nfs/test3 /nfs/local/test3</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看挂载情况</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">[root@6a192e7f-a43d-4b57-9573-ca740e3b5f0d ~]# df -h</span><br><span class="line">Filesystem            Size  Used Avail Use% Mounted on</span><br><span class="line">/dev/mapper/VolGroup-root</span><br><span class="line">                       50G  5.3G   42G  12% /</span><br><span class="line">tmpfs                 1.9G     0  1.9G   0% /dev/shm</span><br><span class="line">/dev/vda1             488M   31M  432M   7% /boot</span><br><span class="line">/dev/sda               20G   33M   20G   1% /data</span><br><span class="line">10.10.30.250:/nfs/test1</span><br><span class="line">                       50G  5.3G   42G  12% /nfs/local/test1</span><br><span class="line">10.10.30.250:/nfs/test2</span><br><span class="line">                       50G  5.3G   42G  12% /nfs/local/test2</span><br><span class="line">10.10.30.250:/nfs/test3</span><br><span class="line">                       50G  5.3G   42G  12% /nfs/local/test3</span><br><span class="line">[root@6a192e7f-a43d-4b57-9573-ca740e3b5f0d ~]# mount</span><br><span class="line">/dev/mapper/VolGroup-root on / type ext4 (rw)</span><br><span class="line">proc on /proc type proc (rw)</span><br><span class="line">sysfs on /sys type sysfs (rw)</span><br><span class="line">devpts on /dev/pts type devpts (rw,gid=5,mode=620)</span><br><span class="line">tmpfs on /dev/shm type tmpfs (rw)</span><br><span class="line">/dev/vda1 on /boot type ext4 (rw)</span><br><span class="line">none on /proc/sys/fs/binfmt_misc type binfmt_misc (rw)</span><br><span class="line">/dev/sda on /data type xfs (rw,nouuid)</span><br><span class="line">sunrpc on /var/lib/nfs/rpc_pipefs type rpc_pipefs (rw)</span><br><span class="line">10.10.30.250:/nfs/test1 on /nfs/local/test1 type nfs (rw,vers=4,addr=10.10.30.250,clientaddr=10.10.30.247)</span><br><span class="line">10.10.30.250:/nfs/test2 on /nfs/local/test2 type nfs (rw,vers=4,addr=10.10.30.250,clientaddr=10.10.30.247)</span><br><span class="line">10.10.30.250:/nfs/test3 on /nfs/local/test3 type nfs (rw,vers=4,addr=10.10.30.250,clientaddr=10.10.30.247)</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h2 id="NFS文件访问权限设置"><a href="#NFS文件访问权限设置" class="headerlink" title="NFS文件访问权限设置"></a>NFS文件访问权限设置</h2><p>我们知道在Linux系统中的文件，都有访问权限，可以指定用户访问，那么我通过NFS访问文件权限是如何设定的呢。比如我再NFS server上有一个文件的属主与属组都是gangshen,那我再client端普通用户user1访问这个文件，可以做修改吗？如果是使用root用户访问这个文件，可以做修改吗？<br>NFS文件系统的权限访问的原则是：<strong>服务器端会以客户端的用户UID与GID等身份来尝试读取服务器端的文件系统</strong><br>以下是NFS是如何判断是否一个文件可写的步骤:</p>
+<ol>
+<li>客户端以user1这个账户访问NFS目录，实际是以client端的user1的UID以及GID进行访问的</li>
+<li>NFS server收到客户端访问请求中的UID、GID，并根据这个UID在server端所在的服务器找到相应的用户，以该用户的权限进行访问</li>
+<li>如果找不到对应UID的用户，则NFS server端会将连接的身份转换为匿名用户的连接</li>
+<li>根据/etc/exports配置文件判断该目录是否有写入权限<br>只有在满足：1、用户有写入权限 2、exports设置为有写入权限 3、文件具有写入权限 这三点之后，客户端才可以写入NFS是共享目录。</li>
+</ol>
+<p>根据上述步骤的话，可以想到一种情况，如果我client端是通过root账户连接的，那我是不是对所有的文件具有可读、可写权限。这个的话，就需要重新来看下/etc/exports这个配置文件了。在exports文件中，设定权限的时候可以指定no_root_squash、root_squash、all_squash，这三个就是控制，我client连接上来的用户，最终在server端会以哪个用户进行访问。默认情况下是设置为root_squash，就是说如果client以root用户连接上来的话，server端会将该用户转换为匿名用户进行访问。很明显no_root_squash这个选项就是说不转换成匿名用户，all_squash这个选项是指定无论client用什么账户连接上来，都会被转换成匿名用户。</p>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/07/11/在Linux下磁盘分区、创建文件系统、挂载/" rel="prev" title="在Linux下磁盘分区、创建文件系统、挂载">
+      <i class="fa fa-chevron-left"></i> 在Linux下磁盘分区、创建文件系统、挂载
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/09/19/MySQL——触发器、存储过程、函数、定时器认识/" rel="next" title="MySQL——触发器、存储过程、函数、定时器认识">
+      MySQL——触发器、存储过程、函数、定时器认识 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#什么是NFS，为什么要NFS"><span class="nav-number">1.</span> <span class="nav-text">什么是NFS，为什么要NFS</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#什么是RPC"><span class="nav-number">2.</span> <span class="nav-text">什么是RPC</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置NFS步骤"><span class="nav-number">3.</span> <span class="nav-text">配置NFS步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#NFS主要软件结构"><span class="nav-number">3.1.</span> <span class="nav-text">NFS主要软件结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#etc-exports配置文件介绍"><span class="nav-number">3.2.</span> <span class="nav-text">/etc/exports配置文件介绍</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#NFS-server端配置"><span class="nav-number">3.3.</span> <span class="nav-text">NFS server端配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#client端配置"><span class="nav-number">3.4.</span> <span class="nav-text">client端配置</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#NFS文件访问权限设置"><span class="nav-number">4.</span> <span class="nav-text">NFS文件访问权限设置</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

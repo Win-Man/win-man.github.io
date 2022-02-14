@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="环境信息及故障现象集群版本v4.0.0 故障现象TiDB 集群的物理机异常断电重启,机器恢复后,通过 tiup cluster start &amp;lt;cluster-name&amp;gt; 启动集群，发现有两个 PD 节点启动失败 12345678910111213141516171819202122232425262728293031[root@localhost ~]# tiup cluster st">
+<meta name="keywords" content="TiDB,故障恢复">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TiDB 异常断电恢复后 PD 节点启动失败">
+<meta property="og:url" content="http://yoursite.com/2020/06/16/051-pd-recovery/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="环境信息及故障现象集群版本v4.0.0 故障现象TiDB 集群的物理机异常断电重启,机器恢复后,通过 tiup cluster start &amp;lt;cluster-name&amp;gt; 启动集群，发现有两个 PD 节点启动失败 12345678910111213141516171819202122232425262728293031[root@localhost ~]# tiup cluster st">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.106Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TiDB 异常断电恢复后 PD 节点启动失败">
+<meta name="twitter:description" content="环境信息及故障现象集群版本v4.0.0 故障现象TiDB 集群的物理机异常断电重启,机器恢复后,通过 tiup cluster start &amp;lt;cluster-name&amp;gt; 启动集群，发现有两个 PD 节点启动失败 12345678910111213141516171819202122232425262728293031[root@localhost ~]# tiup cluster st">
+
+<link rel="canonical" href="http://yoursite.com/2020/06/16/051-pd-recovery/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>TiDB 异常断电恢复后 PD 节点启动失败 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/06/16/051-pd-recovery/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          TiDB 异常断电恢复后 PD 节点启动失败
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-06-16 16:43:13" itemprop="dateCreated datePublished" datetime="2020-06-16T16:43:13+00:00">2020-06-16</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/TiDB/" itemprop="url" rel="index"><span itemprop="name">TiDB</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="环境信息及故障现象"><a href="#环境信息及故障现象" class="headerlink" title="环境信息及故障现象"></a>环境信息及故障现象</h2><h3 id="集群版本"><a href="#集群版本" class="headerlink" title="集群版本"></a>集群版本</h3><p>v4.0.0</p>
+<h3 id="故障现象"><a href="#故障现象" class="headerlink" title="故障现象"></a>故障现象</h3><p>TiDB 集群的物理机异常断电重启,机器恢复后,通过 <code>tiup cluster start &lt;cluster-name&gt;</code> 启动集群，发现有两个 <code>PD</code> 节点启动失败</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">[root@localhost ~]# tiup cluster start t11</span><br><span class="line">Starting component `cluster`: /root/.tiup/components/cluster/v1.0.0/cluster start t11</span><br><span class="line">Starting cluster t11...</span><br><span class="line">+ [ Serial ] - SSHKeySet: privateKey=/root/.tiup/storage/cluster/clusters/t11/ssh/id_rsa, publicKey=/root/.tiup/storage/cluster/clusters/t11/ssh/id_rsa.pub</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.128</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.151</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.152</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.153</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.151</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.152</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.155</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.128</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.128</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.154</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.153</span><br><span class="line">+ [Parallel] - UserSSH: user=tidb, host=192.168.73.128</span><br><span class="line">+ [ Serial ] - ClusterOperate: operation=StartOperation, options=&#123;Roles:[] Nodes:[] Force:false SSHTimeout:5 OptTimeout:60 APITimeout:300&#125;</span><br><span class="line">Starting component pd</span><br><span class="line">	Starting instance pd 192.168.73.153:2379</span><br><span class="line">	Starting instance pd 192.168.73.151:2379</span><br><span class="line">	Starting instance pd 192.168.73.152:2379</span><br><span class="line">	Start pd 192.168.73.151:2379 success</span><br><span class="line">retry error: operation timed out after 1m0s</span><br><span class="line">	pd 192.168.73.153:2379 failed to start: timed out waiting for port 2379 to be started after 1m0s, please check the log of the instance</span><br><span class="line">retry error: operation timed out after 1m0s</span><br><span class="line">	pd 192.168.73.152:2379 failed to start: timed out waiting for port 2379 to be started after 1m0s, please check the log of the instance</span><br><span class="line"></span><br><span class="line">Error: failed to start: failed to start pd: 	pd 192.168.73.153:2379 failed to start: timed out waiting for port 2379 to be started after 1m0s, please check the log of the instance: timed out waiting for port 2379 to be started after 1m0s</span><br><span class="line"></span><br><span class="line">Verbose debug logs has been written to /root/logs/tiup-cluster-debug-2020-06-16-16-28-39.log.</span><br><span class="line">Error: run `/root/.tiup/components/cluster/v1.0.0/cluster` (wd:/root/.tiup/data/S23ruRB) failed: exit status 1</span><br></pre></td></tr></table></figure>
+<p>登陆到 <code>PD</code> 节点所在机器，查看 <code>pd-server</code> 进程的确不存在，通过 <code>pd.log</code> 日志查看 <code>PD</code> 启动失败的原因：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[2020/06/16 16:29:10.180 +08:00] [INFO] [systime_mon.go:26] [&quot;start system time monitor&quot;]</span><br><span class="line">[2020/06/16 16:29:10.181 +08:00] [INFO] [backend.go:79] [&quot;opened backend db&quot;] [path=/tidb/tidb-data/pd-2379/member/snap/db] [took=739.112µs]</span><br><span class="line">[2020/06/16 16:29:10.182 +08:00] [INFO] [server.go:443] [&quot;recovered v2 store from snapshot&quot;] [snapshot-index=1400015] [snapshot-size=&quot;22 kB&quot;]</span><br><span class="line">[2020/06/16 16:29:10.195 +08:00] [WARN] [db.go:92] [&quot;failed to find [SNAPSHOT-INDEX].snap.db&quot;] [snapshot-index=1400015] [snapshot-file-path=/tidb/tidb-data/pd-2379/member/snap/0000000000155ccf.snap.db] [error=&quot;snap: snapshot file doesn&apos;t exist&quot;]</span><br><span class="line">[2020/06/16 16:29:10.195 +08:00] [PANIC] [server.go:454] [&quot;failed to recover v3 backend from snapshot&quot;] [error=&quot;failed to find database snapshot file (snap: snapshot file doesn&apos;t exist)&quot;]</span><br><span class="line">[2020/06/16 16:29:10.195 +08:00] [FATAL] [log.go:292] [panic] [recover=&quot;\&quot;invalid memory address or nil pointer dereference\&quot;&quot;] [stack=&quot;github.com/pingcap/log.Fatal\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/pkg/mod/github.com/pingcap/log@v0.0.0-20200117041106-d28c14d3b1cd/global.go:59\ngithub.com/pingcap/pd/v4/pkg/logutil.LogPanic\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/src/github.com/pingcap/pd/pkg/logutil/log.go:292\nruntime.gopanic\n\t/usr/local/go/src/runtime/panic.go:679\nruntime.panicmem\n\t/usr/local/go/src/runtime/panic.go:199\nruntime.sigpanic\n\t/usr/local/go/src/runtime/signal_unix.go:394\ngo.etcd.io/etcd/etcdserver.NewServer.func1\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/pkg/mod/go.etcd.io/etcd@v0.5.0-alpha.5.0.20191023171146-3cf2f69b5738/etcdserver/server.go:335\nruntime.gopanic\n\t/usr/local/go/src/runtime/panic.go:679\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/pkg/mod/go.uber.org/zap@v1.13.0/zapcore/entry.go:230\ngo.uber.org/zap.(*Logger).Panic\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/pkg/mod/go.uber.org/zap@v1.13.0/logger.go:225\ngo.etcd.io/etcd/etcdserver.NewServer\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/pkg/mod/go.etcd.io/etcd@v0.5.0-alpha.5.0.20191023171146-3cf2f69b5738/etcdserver/server.go:454\ngo.etcd.io/etcd/embed.StartEtcd\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/pkg/mod/go.etcd.io/etcd@v0.5.0-alpha.5.0.20191023171146-3cf2f69b5738/embed/etcd.go:211\ngithub.com/pingcap/pd/v4/server.(*Server).startEtcd\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/src/github.com/pingcap/pd/server/server.go:257\ngithub.com/pingcap/pd/v4/server.(*Server).Run\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/src/github.com/pingcap/pd/server/server.go:441\nmain.main\n\t/home/jenkins/agent/workspace/build_pd_multi_branch_v4.0.0/go/src/github.com/pingcap/pd/cmd/pd-server/main.go:118\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:203&quot;]</span><br></pre></td></tr></table></figure>
+<p>看到两个 <code>PD</code> 节点都报 <code>failed to recover v3 backedn from snapshot</code> 错误。</p>
+<h3 id="故障原因分析"><a href="#故障原因分析" class="headerlink" title="故障原因分析"></a>故障原因分析</h3><h3 id="故障解决步骤"><a href="#故障解决步骤" class="headerlink" title="故障解决步骤"></a>故障解决步骤</h3><p>参考官方文档 <a href="https://docs.pingcap.com/zh/tidb/v4.0/pd-recover#pd-recover-%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3" target="_blank" rel="noopener">PD Recover 使用文档</a> ,通过 <code>pd-recovery</code> 工具恢复集群。</p>
+<p>根据文档内容主要分为 3 个步骤：1. 找到 <code>cluster id</code> 2. 找到当前最大 <code>alloc id</code> 3. 通过 pd-recovery 恢复 pd 集群</p>
+<p>这边的话，都是通过 PD 日志来查找 <code>cluster id</code> 和 <code>alloc id</code>。</p>
+<p><strong>操作步骤</strong></p>
+<ol>
+<li>查找 cluster id</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">[root@localhost ~]# cat /tidb/tidb-bin/pd-2379/log/pd.log | grep &quot;init cluster id&quot;</span><br><span class="line">[2020/05/06 23:37:02.121 +08:00] [INFO] [server.go:340] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/05/07 00:03:25.132 +08:00] [INFO] [server.go:340] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/05/07 11:45:39.338 +08:00] [INFO] [server.go:340] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/05/25 14:54:50.076 +08:00] [INFO] [server.go:336] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/05/25 16:45:55.526 +08:00] [INFO] [server.go:336] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/05/25 16:48:21.462 +08:00] [INFO] [server.go:336] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/06/01 19:13:17.478 +08:00] [INFO] [server.go:336] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/06/04 02:28:29.655 +08:00] [INFO] [server.go:336] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/06/05 22:27:46.152 +08:00] [INFO] [server.go:336] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/06/08 22:50:30.045 +08:00] [INFO] [server.go:336] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/06/08 22:50:59.534 +08:00] [INFO] [server.go:336] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br><span class="line">[2020/06/11 01:48:35.936 +08:00] [INFO] [server.go:336] [&quot;init cluster id&quot;] [cluster-id=6823755660393880966]</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>查找当前最大的 <code>alloc id</code> ，因为 pd-recovery 去恢复的时候需要指定一个比当前最大的 <code>alloc id</code> 更大的 <code>alloc id</code>，所以需要对所有的 pd 节点日志进行查找</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">pd-1</span><br><span class="line">[root@localhost ~]# cat /tidb/tidb-bin/pd-2379/log/pd.log | grep &quot;allocates&quot;</span><br><span class="line">[2020/05/06 23:37:04.752 +08:00] [INFO] [id.go:110] [&quot;idAllocator allocates a new id&quot;] [alloc-id=1000]</span><br><span class="line">[2020/05/12 11:21:28.271 +08:00] [INFO] [id.go:110] [&quot;idAllocator allocates a new id&quot;] [alloc-id=2000]</span><br><span class="line"></span><br><span class="line">pd-2</span><br><span class="line">[root@localhost ~]# cat /tidb/tidb-bin/pd-2379/log/pd.log | grep &quot;allocates&quot;</span><br><span class="line"></span><br><span class="line">pd-3</span><br><span class="line">[root@localhost ~]# cat /tidb/tidb-bin/pd-2379/log/pd.log | grep &quot;allocates&quot;</span><br><span class="line">[2020/05/27 11:20:20.687 +08:00] [INFO] [id.go:110] [&quot;idAllocator allocates a new id&quot;] [alloc-id=3000]</span><br><span class="line">[2020/06/10 18:04:43.361 +08:00] [INFO] [id.go:110] [&quot;idAllocator allocates a new id&quot;] [alloc-id=4000]</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>删除旧 PD 集群 data 目录下的所有内容，因为这个集群 PD 节点 data 目录为 /tidb/tidb-data/pd-2379 ,所以删除 /tidb/tidb-data/pd-2379 目录下所有内容</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">查看 data 目录</span><br><span class="line">[root@localhost ~]# tiup cluster display t11</span><br><span class="line">......</span><br><span class="line">192.168.73.151:2379   pd            192.168.73.151  2379/2380                        linux/x86_64  Healthy    /tidb/tidb-data/pd-2379            /tidb/tidb-bin/pd-2379</span><br><span class="line">192.168.73.152:2379   pd            192.168.73.152  2379/2380                        linux/x86_64  Healthy    /tidb/tidb-data/pd-2379            /tidb/tidb-bin/pd-2379</span><br><span class="line">192.168.73.153:2379   pd            192.168.73.153  2379/2380                        linux/x86_64  Healthy|L  /tidb/tidb-data/pd-2379            /tidb/tidb-bin/pd-2379</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">删除数据目录</span><br><span class="line"></span><br><span class="line">[root@localhost ~]# mv /tidb/tidb-data/pd-2379/* /tmp</span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li>启动 PD 集群</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup cluster start t11 -R pd</span><br></pre></td></tr></table></figure>
+<ol start="5">
+<li>通过 pd-recovery 恢复集群，<code>--endpoints</code> 指定一个 pd 节点，<code>-cluster-id</code> 指定查找到的 cluster-id ,<code>-alloc-id</code> 指定比查找到的最大 alloc id 更大的一个数字，所以这边只要指定一个比 4000 更大的数字即可</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@localhost ~]# ./pd-recover -endpoints http://192.168.73.151:2379 -cluster-id 6823755660393880966 -alloc-id 10000</span><br><span class="line">recover success! please restart the PD cluster</span><br></pre></td></tr></table></figure>
+<ol start="6">
+<li>重启 PD 集群</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup cluster restart t11 -R pd</span><br></pre></td></tr></table></figure>
+<ol start="7">
+<li>启动集群</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup cluster start t11</span><br></pre></td></tr></table></figure>
+<ol start="8">
+<li>查看集群状态，恢复正常</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tiup cluster display t11</span><br></pre></td></tr></table></figure>
+<p><strong>注意</strong></p>
+<blockquote>
+<p>通过 tiup 部署的 TiDB 集群需要用户自己下载 pd-recovery 工具，可以通过 <code>http://download.pingcap.org/tidb--linux-amd64.tar.gz</code> 链接进行下载</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/TiDB/" rel="tag"># TiDB</a>
+              <a href="/tags/故障恢复/" rel="tag"># 故障恢复</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/03/29/049-go-grpc/" rel="prev" title="Go 实现 gRPC 服务">
+      <i class="fa fa-chevron-left"></i> Go 实现 gRPC 服务
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/01/052-haproxy-ip/" rel="next" title="TiDB + HAProxy 配置透传 IP">
+      TiDB + HAProxy 配置透传 IP <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#环境信息及故障现象"><span class="nav-number">1.</span> <span class="nav-text">环境信息及故障现象</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#集群版本"><span class="nav-number">1.1.</span> <span class="nav-text">集群版本</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#故障现象"><span class="nav-number">1.2.</span> <span class="nav-text">故障现象</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#故障原因分析"><span class="nav-number">1.3.</span> <span class="nav-text">故障原因分析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#故障解决步骤"><span class="nav-number">1.4.</span> <span class="nav-text">故障解决步骤</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

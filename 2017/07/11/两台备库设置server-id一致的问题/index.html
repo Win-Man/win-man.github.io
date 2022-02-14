@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="简介在《高性能MySQL》上看到说在一主多从的架构中，如果从库的sever_id设置为一样的，可能会导致一些奇怪的现象，例如从库的错误日志中会不断的打印错误日志，会不断的断开连接并重新连接。  在主库上，会发现两台备库只有一台连接到主库（通常情况下所有的备库都会建立连接等待随时进行复制）。在备库的错误日志中，则会发现反复的重连和连接断开信息，但不会提及被错误配置的服务器ID。  根据眼见为实，耳听">
+<meta name="keywords" content="MySQL,复制">
+<meta property="og:type" content="article">
+<meta property="og:title" content="两台备库设置server_id一致的问题">
+<meta property="og:url" content="http://yoursite.com/2017/07/11/两台备库设置server-id一致的问题/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="简介在《高性能MySQL》上看到说在一主多从的架构中，如果从库的sever_id设置为一样的，可能会导致一些奇怪的现象，例如从库的错误日志中会不断的打印错误日志，会不断的断开连接并重新连接。  在主库上，会发现两台备库只有一台连接到主库（通常情况下所有的备库都会建立连接等待随时进行复制）。在备库的错误日志中，则会发现反复的重连和连接断开信息，但不会提及被错误配置的服务器ID。  根据眼见为实，耳听">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.114Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="两台备库设置server_id一致的问题">
+<meta name="twitter:description" content="简介在《高性能MySQL》上看到说在一主多从的架构中，如果从库的sever_id设置为一样的，可能会导致一些奇怪的现象，例如从库的错误日志中会不断的打印错误日志，会不断的断开连接并重新连接。  在主库上，会发现两台备库只有一台连接到主库（通常情况下所有的备库都会建立连接等待随时进行复制）。在备库的错误日志中，则会发现反复的重连和连接断开信息，但不会提及被错误配置的服务器ID。  根据眼见为实，耳听">
+<meta name="twitter:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+
+<link rel="canonical" href="http://yoursite.com/2017/07/11/两台备库设置server-id一致的问题/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>两台备库设置server_id一致的问题 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/07/11/两台备库设置server-id一致的问题/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          两台备库设置server_id一致的问题
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-07-11 08:13:04" itemprop="dateCreated datePublished" datetime="2017-07-11T08:13:04+00:00">2017-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>在《高性能MySQL》上看到说在一主多从的架构中，如果从库的sever_id设置为一样的，可能会导致一些奇怪的现象，例如从库的错误日志中会不断的打印错误日志，会不断的断开连接并重新连接。</p>
+<blockquote>
+<p>在主库上，会发现两台备库只有一台连接到主库（通常情况下所有的备库都会建立连接等待随时进行复制）。在备库的错误日志中，则会发现反复的重连和连接断开信息，但不会提及被错误配置的服务器ID。</p>
+</blockquote>
+<p>根据眼见为实，耳听为虚的原则，我搭了一套一主两从的环境，将两台从库的server_id设置为了一样的。但是并没有看到书上提到的现象。考虑了一下，会不会是数据库版本的原因，因为我的测试的数据库版本是5.7.18版本的。于是又重新搭建了一套5.5.36版本的数据库，并成功复现了书上所讲的现象。<br>下面是我的测试步骤。</p>
+<h2 id="测试步骤"><a href="#测试步骤" class="headerlink" title="测试步骤"></a>测试步骤</h2><h3 id="环境介绍"><a href="#环境介绍" class="headerlink" title="环境介绍"></a>环境介绍</h3><ul>
+<li>主库<br>IP：192.168.1.130<br>server_id：3656</li>
+<li>从库A<br>IP：192.168.1.36<br>server_id：56</li>
+<li>从库B<br>IP：192.168.1.57<br>server_id：56</li>
+</ul>
+<p>三台主机除server_id之外，其余配置如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">server_id = 123</span><br><span class="line">[client]</span><br><span class="line">socket = /home/mysql/data/mysqldata5.5/sock/mysql.sock</span><br><span class="line">[mysqld]</span><br><span class="line">#server_id = 3655</span><br><span class="line">server_id = 123</span><br><span class="line">port = 3306</span><br><span class="line">skip_name_resolve = 1</span><br><span class="line">binlog_format = ROW</span><br><span class="line">#binlog_format = STATEMENT</span><br><span class="line">basedir = /home/mysql/program/mysql5.5.36</span><br><span class="line">datadir = /home/mysql/data/mysqldata5.5/mydata</span><br><span class="line">socket = /home/mysql/data/mysqldata5.5/sock/mysql.sock</span><br><span class="line">pid-file = /home/mysql/data/mysqldata5.5/sock/mysql.pid</span><br><span class="line">tmpdir = /home/mysql/data/mysqldata5.5/tmpdir</span><br><span class="line">log-error = /home/mysql/data/mysqldata5.5/log/error.log</span><br><span class="line">slow_query_log</span><br><span class="line">slow_query_log_file = /home/mysql/data/mysqldata5.5/slowlog/slow-query.log</span><br><span class="line">log-bin = /home/mysql/data/mysqldata5.5/binlog/mysql-bin</span><br><span class="line">relay-log = /home/mysql/data/mysqldata5.5/relaylog/mysql-relay-bin</span><br><span class="line">innodb_data_home_dir = /home/mysql/data/mysqldata5.5/innodb_ts</span><br><span class="line">innodb_log_group_home_dir = /home/mysql/data/mysqldata5.5/innodb_log</span><br><span class="line">#innodb_undo_directory = /home/mysql/data/mysqldata5.5/undo/</span><br><span class="line">sync_binlog=1</span><br><span class="line">innodb_file_per_table=1</span><br><span class="line">#skip_grant_tables</span><br><span class="line">expire_logs_days = 1</span><br><span class="line">log_slave_updates = ON</span><br><span class="line">#replicate-same-server-id=1</span><br><span class="line">skip_slave_start</span><br><span class="line">#innodb_undo_tablespaces=1</span><br></pre></td></tr></table></figure></p>
+<h3 id="5-5-36版本现象"><a href="#5-5-36版本现象" class="headerlink" title="5.5.36版本现象"></a>5.5.36版本现象</h3><p>初始搭建环境之后，查看各主机状态。搭建环境的步骤就省略。</p>
+<h4 id="主库（192-168-1-130）"><a href="#主库（192-168-1-130）" class="headerlink" title="主库（192.168.1.130）"></a>主库（192.168.1.130）</h4><p>主库通过show processlist语句查看，只有一个dump线程，但是通过多次刷新，可以看到连接的是不同的服务器。可以看到每次通过show processlist语句显示的dump线程的Host字段中，IP:PORT的值是不断在更新的，说明dump线程在不断的重连，才会出现占用不同的端口的现象。</p>
+<h4 id="从库A（192-168-1-36）"><a href="#从库A（192-168-1-36）" class="headerlink" title="从库A（192.168.1.36）"></a>从库A（192.168.1.36）</h4><p>通过<code>show slave status\G</code>命令查看复制状态，多次执行可以看到<code>Slave_IO_Running</code>字段显示的内容，出现YES或者Connnecting两种状态。可以看到I/O线程在不断的进行重连。<br>并且通过<code>tail -f</code>命令查看error log，可以看到I/O线程一直在尝试重新连接。</p>
+<p> 可以看到在错误日志中打印的信息是，I/O线程连接</p>
+<h4 id="从库B（192-168-1-57）"><a href="#从库B（192-168-1-57）" class="headerlink" title="从库B（192.168.1.57）"></a>从库B（192.168.1.57）</h4><p>从库B现象与从库A一致。</p>
+<h3 id="5-6-36版本现象"><a href="#5-6-36版本现象" class="headerlink" title="5.6.36版本现象"></a>5.6.36版本现象</h3><p>搭建环境步骤省略。</p>
+<h4 id="主库（192-168-1-130）-1"><a href="#主库（192-168-1-130）-1" class="headerlink" title="主库（192.168.1.130）"></a>主库（192.168.1.130）</h4><p>show processlist查看有两个dump线程，并且多次刷新，发现Host字段中的IP:PORT并没有修改，说明dump线程一直保持连接。</p>
+<h4 id="从库A（192-168-1-36）-1"><a href="#从库A（192-168-1-36）-1" class="headerlink" title="从库A（192.168.1.36）"></a>从库A（192.168.1.36）</h4><p>tail -f /home/mysql/data/mysqldata5.6/log/error.log查看错误日志，没有不断断开连接</p>
+<h4 id="从库B（192-168-1-57）-1"><a href="#从库B（192-168-1-57）-1" class="headerlink" title="从库B（192.168.1.57）"></a>从库B（192.168.1.57）</h4><p>tail -f /home/mysql/data/mysqldata5.6/log/error.log查看错误日志，没有不断断开连接</p>
+<h2 id="原因分析"><a href="#原因分析" class="headerlink" title="原因分析"></a>原因分析</h2><p><a href="http://www.penglixun.com/tech/database/mysql_multi_slave_same_serverid.html" target="_blank" rel="noopener">http://www.penglixun.com/tech/database/mysql_multi_slave_same_serverid.html</a>这是彭大大写的关于多个slave使用相同server_id时冲突的原因。按照彭大大的分析，我理解的是，slave的I/O线程连接上主库的时候，主库上会调用<code>register_slave()</code>这个函数，在这个函数中又调用了unregister_slave()函数，会将之前使用相同server_id的线程给注销掉。从而导致从库的I/O线程不断断开重连。<br>但是仔细看了一下unregister_slave()函数的代码，并没有发现MySQL是根据server_id来注销dump线程的。并且进一步比较了一下5.5.36和5.6.36版本的代码，并没有发现不同。<br>进一步看了一下彭大大的文章，发现有人在下面评论，说主要是<code>kill_zombie_slave_threads()</code>函数导致的。于是看了一下<code>kill_zombie_slave_threads()</code>函数的逻辑，发现MySQL应该就是在这一步根据server_id将线程kill了。</p>
+<ul>
+<li><p>5.5.36版本<br>首先来看下5.5.36版本的<code>kill_zombie_dump_threads()</code>函数的代码。看到这个函数传入的参数是一个uint32类型的slave_server_id,在函数中做的事情是，遍历MySQL中的所有线程，如果遍历到一个线程是dump线程并且线程的server_id是等于传入的参数值话，则跳出遍历循环，并对kill掉这个线程。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">void kill_zombie_dump_threads(uint32 slave_server_id)                           </span><br><span class="line">&#123;                                                                               </span><br><span class="line">  mysql_mutex_lock(&amp;LOCK_thread_count);                                         </span><br><span class="line">  I_List_iterator&lt;THD&gt; it(threads);                                             </span><br><span class="line">  THD *tmp;                                                                     </span><br><span class="line">  while ((tmp=it++))                                                            </span><br><span class="line">  &#123;                                                                             </span><br><span class="line">    if (tmp-&gt;command == COM_BINLOG_DUMP &amp;&amp;                                      </span><br><span class="line">      tmp-&gt;server_id == slave_server_id)                                       </span><br><span class="line">    &#123;                                                                           </span><br><span class="line">     mysql_mutex_lock(&amp;tmp-&gt;LOCK_thd_data);    // Lock from delete             </span><br><span class="line">     break;                                                                    </span><br><span class="line">    &#125;                                                                           </span><br><span class="line">  &#125;                                                                             </span><br><span class="line">  mysql_mutex_unlock(&amp;LOCK_thread_count);                                       </span><br><span class="line">  if (tmp)                                                                      </span><br><span class="line">  &#123;                                                                             </span><br><span class="line">    /*                                                                          </span><br><span class="line">     Here we do not call kill_one_thread() as                                  </span><br><span class="line">     it will be slow because it will iterate through the list                  </span><br><span class="line">     again. We just to do kill the thread ourselves.                           </span><br><span class="line">    */                                                                          </span><br><span class="line">    tmp-&gt;awake(THD::KILL_QUERY);                                                </span><br><span class="line">    mysql_mutex_unlock(&amp;tmp-&gt;LOCK_thd_data);                                    </span><br><span class="line">  &#125;                                                                             </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>5.6.35版本<br>再来看一下5.6.36版本的<code>kill_zombie_dump_threads()</code>函数的代码实现，与5.5.36大不相同。首先传入的参数是一THD类型的指针，在函数中实现的逻辑同样是遍历MySQL中的所有线程，如果找到dump线程，首先看一下这个线程有没有uuid字段（因为uuid是在5.6之后的版本才有的，这边是为了兼容5.5），如果有uuid则用uuid进行比较，如果没有uuid，则用server_id进行比较。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"> void kill_zombie_dump_threads(THD *thd)                                                                                                  </span><br><span class="line">&#123;                                                                               </span><br><span class="line">  String slave_uuid;                                                            </span><br><span class="line">  get_slave_uuid(thd, &amp;slave_uuid);                                             </span><br><span class="line">  if (slave_uuid.length() == 0 &amp;&amp; thd-&gt;server_id == 0)                          </span><br><span class="line">    return;                                                                     </span><br><span class="line">                                                                                </span><br><span class="line">  mysql_mutex_lock(&amp;LOCK_thread_count);                                         </span><br><span class="line">  THD *tmp= NULL;                                                               </span><br><span class="line">  Thread_iterator it= global_thread_list_begin();                               </span><br><span class="line">  Thread_iterator end= global_thread_list_end();                                </span><br><span class="line">  bool is_zombie_thread= false;                                                 </span><br><span class="line">  for (; it != end; ++it)                                                       </span><br><span class="line">  &#123;                                                                             </span><br><span class="line">    if ((*it) != thd &amp;&amp; ((*it)-&gt;get_command() == COM_BINLOG_DUMP || (*it)-&gt;get_command() == COM_BINLOG_DUMP_GTID))         </span><br><span class="line">    &#123;                                                                           </span><br><span class="line">     String tmp_uuid;                                                          </span><br><span class="line">     get_slave_uuid((*it), &amp;tmp_uuid);                                         </span><br><span class="line">     if (slave_uuid.length())                                                  </span><br><span class="line">     &#123;                                                                         </span><br><span class="line">       is_zombie_thread= (tmp_uuid.length() &amp;&amp; !strncmp(slave_uuid.c_ptr(),                         </span><br><span class="line">                                         tmp_uuid.c_ptr(), UUID_LENGTH)); </span><br><span class="line">                                                                       </span><br><span class="line">     else                                                                      </span><br><span class="line">     &#123;                                                                         </span><br><span class="line">       /*                                                                      </span><br><span class="line">       ¦ Check if it is a 5.5 slave&apos;s dump thread i.e., server_id should be    </span><br><span class="line">       ¦ same &amp;&amp; dump thread should not contain &apos;UUID&apos;.                        </span><br><span class="line">       */                                                                      </span><br><span class="line">       is_zombie_thread= (((*it)-&gt;server_id == thd-&gt;server_id) &amp;&amp; !tmp_uuid.length());                                 </span><br><span class="line">     &#125;                                                                         </span><br><span class="line">     if (is_zombie_thread)                                                     </span><br><span class="line">     &#123;                                                                         </span><br><span class="line">       tmp= *it;                                                               </span><br><span class="line">       mysql_mutex_lock(&amp;tmp-&gt;LOCK_thd_data);  // Lock from delete             </span><br><span class="line">       break;                                                                  </span><br><span class="line">     &#125;                                                                         </span><br><span class="line">    &#125;                                                                           </span><br><span class="line">  &#125;                                                                             </span><br><span class="line">  mysql_mutex_unlock(&amp;LOCK_thread_count);                                       </span><br><span class="line">  if (tmp)                                                                      </span><br><span class="line">  &#123;                                                                             </span><br><span class="line">    /*                                                                          </span><br><span class="line">    ¦ Here we do not call kill_one_thread() as                                  </span><br><span class="line">    ¦ it will be slow because it will iterate through the list                  </span><br><span class="line">    ¦ again. We just to do kill the thread ourselves.                           </span><br><span class="line">    */                                                                          </span><br><span class="line">    if (log_warnings &gt; 1)                                                       </span><br><span class="line">    &#123;                                                                           </span><br><span class="line">     if (slave_uuid.length())                                                  </span><br><span class="line">     &#123;                                                                       </span><br><span class="line"> sql_print_information(&quot;While initializing dump thread for slave with &quot;  </span><br><span class="line">&quot;UUID &lt;%s&gt;, found a zombie dump thread with the &quot; </span><br><span class="line"> &quot;same UUID. Master is killing the zombie dump &quot;   </span><br><span class="line"> &quot;thread(%lu).&quot;, slave_uuid.c_ptr(),               </span><br><span class="line"> tmp-&gt;thread_id);                                  </span><br><span class="line">     &#125;                                                                         </span><br><span class="line">     else                                                                      </span><br><span class="line">     &#123;                                                                         </span><br><span class="line">       sql_print_information(&quot;While initializing dump thread for slave with &quot;  </span><br><span class="line"> &quot;server_id &lt;%u&gt;, found a zombie dump thread with the &quot;</span><br><span class="line">&quot;same server_id. Master is killing the zombie dump &quot;</span><br><span class="line"> &quot;thread(%lu).&quot;, thd-&gt;server_id,                   </span><br><span class="line"> tmp-&gt;thread_id);                                  </span><br><span class="line">     &#125;                                                                         </span><br><span class="line">    &#125;                                                                           </span><br><span class="line">    tmp-&gt;duplicate_slave_id= true;                                              </span><br><span class="line">    tmp-&gt;awake(THD::KILL_QUERY);                                                </span><br><span class="line">    mysql_mutex_unlock(&amp;tmp-&gt;LOCK_thd_data);                                    </span><br><span class="line">  &#125;                                                                             </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>函数调用<br>知道了<code>kill_zombie_dump_threads()</code>线程实现的逻辑，那MySQL是在什么地方会调用这个函数的呢。看了一下函数是在<code>case COM_BINLOG_DUMP</code>中被调用的。<br>在5.5.36版本中是在</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">case COM_BINLOG_DUMP:                                                         </span><br><span class="line"> &#123;                                                                           </span><br><span class="line"> ulong pos;                                                                </span><br><span class="line"> ushort flags;                                                             </span><br><span class="line"> uint32 slave_server_id;                                                                                                                                 </span><br><span class="line"> status_var_increment(thd-&gt;status_var.com_other);                          </span><br><span class="line"> thd-&gt;enable_slow_log= opt_log_slow_admin_statements;                      </span><br><span class="line"> if (check_global_access(thd, REPL_SLAVE_ACL))                             </span><br><span class="line">break;                                                                                                                                                 </span><br><span class="line"> /* TODO: The following has to be changed to an 8 byte integer */          </span><br><span class="line"> pos = uint4korr(packet);                                                  </span><br><span class="line"> flags = uint2korr(packet + 4);                                            </span><br><span class="line"> thd-&gt;server_id=0; /* avoid suicide */                                     </span><br><span class="line"> if ((slave_server_id= uint4korr(packet+6))) // mysqlbinlog.server_id==0   </span><br><span class="line"> kill_zombie_dump_threads(slave_server_id);                                  </span><br><span class="line"> thd-&gt;server_id = slave_server_id;                                                                                                                    </span><br><span class="line"> general_log_print(thd, command, &quot;Log: &apos;%s&apos;  Pos: %ld&quot;, packet+10,  (long) pos);                                              </span><br><span class="line"> mysql_binlog_send(thd, thd-&gt;strdup(packet + 10), (my_off_t) pos, flags);  </span><br><span class="line">unregister_slave(thd,1,1);                                                </span><br><span class="line">/*  fake COM_QUIT -- if we get here, the thread needs to terminate */     </span><br><span class="line"> error = TRUE;                                                             </span><br><span class="line">break;                                                                    </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>在5.6.36版本中也是在<code>case COM_BINLOG_DUMP</code>中，只不过是将之前的逻辑封装在了<code>com_binlog_dump()</code>函数中了，<code>kill_zombie_dump_threads()</code>也是在<code>com_binlog_dump()</code>函数中调用的。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">case COM_BINLOG_DUMP:                                                         </span><br><span class="line">error= com_binlog_dump(thd, packet, packet_length);                                                                                  </span><br><span class="line">break;</span><br></pre></td></tr></table></figure></p>
+<p><code>case COM_BINLOG_DUMP</code>中所进行的操作就是将dump线程通知I/O线程拉取新的binlog。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>整理下来的话，基本上可以确定主要是因为<code>kill_zombie_dump_threads()</code>函数导致在5.6之前的版本中，如果是一主多从的架构中，如果在从库之间的server_id如果设置为一样，会出现从开I/O线程不断断开重连的现象。因为在5.6之前的版本中，还没有UUID的概念，MySQL使用server_id来区分是否是同一台机器，而在5.6之后的版本是使用的UUID来区分。<br>总结一句，就是数据库之间的server_id不要设置成一样，不然可能会有一些不可预知的错误。</p>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+              <a href="/tags/复制/" rel="tag"># 复制</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/01/14/2016总结/" rel="prev" title="2016总结">
+      <i class="fa fa-chevron-left"></i> 2016总结
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/07/11/Xtrabackup备份从库的问题/" rel="next" title="Xtrabackup备份从库的问题">
+      Xtrabackup备份从库的问题 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#简介"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#测试步骤"><span class="nav-number">2.</span> <span class="nav-text">测试步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#环境介绍"><span class="nav-number">2.1.</span> <span class="nav-text">环境介绍</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-5-36版本现象"><span class="nav-number">2.2.</span> <span class="nav-text">5.5.36版本现象</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#主库（192-168-1-130）"><span class="nav-number">2.2.1.</span> <span class="nav-text">主库（192.168.1.130）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#从库A（192-168-1-36）"><span class="nav-number">2.2.2.</span> <span class="nav-text">从库A（192.168.1.36）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#从库B（192-168-1-57）"><span class="nav-number">2.2.3.</span> <span class="nav-text">从库B（192.168.1.57）</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5-6-36版本现象"><span class="nav-number">2.3.</span> <span class="nav-text">5.6.36版本现象</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#主库（192-168-1-130）-1"><span class="nav-number">2.3.1.</span> <span class="nav-text">主库（192.168.1.130）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#从库A（192-168-1-36）-1"><span class="nav-number">2.3.2.</span> <span class="nav-text">从库A（192.168.1.36）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#从库B（192-168-1-57）-1"><span class="nav-number">2.3.3.</span> <span class="nav-text">从库B（192.168.1.57）</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#原因分析"><span class="nav-number">3.</span> <span class="nav-text">原因分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

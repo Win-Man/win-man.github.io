@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="MySQL Binlog(六)——MySQL常见binlog event解析（中）前言本文继续介绍binlog中常见的event：Table_map_event、Write_rows_log_event、Update_rows_log_event、Delete_rows_log_event、Xid_event。 Table_map_eventTABLE_MAP_EVENT只有在binlog文件是以">
+<meta name="keywords" content="MySQL,Binlog">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL Binlog(六)——MySQL常见binlog event解析（中）">
+<meta property="og:url" content="http://yoursite.com/2019/12/07/MySQL Binlog(六)——MySQL常见binlog event解析（中）/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="MySQL Binlog(六)——MySQL常见binlog event解析（中）前言本文继续介绍binlog中常见的event：Table_map_event、Write_rows_log_event、Update_rows_log_event、Delete_rows_log_event、Xid_event。 Table_map_eventTABLE_MAP_EVENT只有在binlog文件是以">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL Binlog(六)——MySQL常见binlog event解析（中）">
+<meta name="twitter:description" content="MySQL Binlog(六)——MySQL常见binlog event解析（中）前言本文继续介绍binlog中常见的event：Table_map_event、Write_rows_log_event、Update_rows_log_event、Delete_rows_log_event、Xid_event。 Table_map_eventTABLE_MAP_EVENT只有在binlog文件是以">
+
+<link rel="canonical" href="http://yoursite.com/2019/12/07/MySQL Binlog(六)——MySQL常见binlog event解析（中）/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL Binlog(六)——MySQL常见binlog event解析（中） | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/12/07/MySQL Binlog(六)——MySQL常见binlog event解析（中）/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL Binlog(六)——MySQL常见binlog event解析（中）
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2019-12-07 16:43:13" itemprop="dateCreated datePublished" datetime="2019-12-07T16:43:13+00:00">2019-12-07</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="MySQL-Binlog-六-——MySQL常见binlog-event解析（中）"><a href="#MySQL-Binlog-六-——MySQL常见binlog-event解析（中）" class="headerlink" title="MySQL Binlog(六)——MySQL常见binlog event解析（中）"></a>MySQL Binlog(六)——MySQL常见binlog event解析（中）</h1><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>本文继续介绍binlog中常见的event：Table_map_event、Write_rows_log_event、Update_rows_log_event、Delete_rows_log_event、Xid_event。</p>
+<h2 id="Table-map-event"><a href="#Table-map-event" class="headerlink" title="Table_map_event"></a>Table_map_event</h2><p>TABLE_MAP_EVENT只有在binlog文件是以ROW格式记录的时候，才会使用。binlog中记录的每个更改的记录之前都会有一个对应要操作的表的TABLE_MAP_EVENT。TABLE_MAP_EVENT中记录了表的定义（包括database name,table name，字段定义），并且会将这个表的定义对应于一个数字，称为table_id。设计TABLE_MAP_EVENT类型event的目的是为了当主库和从库之间有不同的表定义的时候，复制仍能进行。如果一个事务中操作了多个表，多行记录，在binlog中会将对多行记录的操作event进行分组，每组行记录操作event前面会出现对应表的TABLE_MAP_EVENT。</p>
+<h3 id="post-header部分"><a href="#post-header部分" class="headerlink" title="post-header部分"></a>post-header部分</h3><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>字节数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>table_id</td>
+<td>6字节</td>
+<td>操作的表的table_id</td>
+</tr>
+<tr>
+<td>flags</td>
+<td>2字节</td>
+<td>目前版本没有用，都是0，保留给之后的版本使用</td>
+</tr>
+</tbody>
+</table>
+<h3 id="event-body部分"><a href="#event-body部分" class="headerlink" title="event-body部分"></a>event-body部分</h3><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>字节数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>database_name</td>
+<td>1个字节表示字符串长度，之后接一个null-terminated类型的字符串</td>
+<td></td>
+<td>操作的数据库的名称</td>
+</tr>
+<tr>
+<td>table_name</td>
+<td>1个字节表示字符串长度，之后接一个null-terminated类型的字符串</td>
+<td>操作的表的名称</td>
+</tr>
+<tr>
+<td>column_count</td>
+<td>packed integer(1或3或4或9个字节)</td>
+<td>对应表中的字段数量</td>
+</tr>
+<tr>
+<td>column_type</td>
+<td>每个字段占用一个字节，字段类型定义在enum_field_types中</td>
+<td>字段类型</td>
+</tr>
+<tr>
+<td>metadata_length</td>
+<td>packed integer(1或3或4或9个字节)</td>
+<td>对应字段的元数据信息的长度</td>
+</tr>
+<tr>
+<td>metadata</td>
+<td>根据enum_field_type中的定义确定不同字段的元数据，如果某字段类型没有元数据，则不记录</td>
+<td>每个字段的元数据信息，比如varchar字段需要记录最长长度</td>
+</tr>
+<tr>
+<td>null_bits</td>
+<td>int((column_count + 7)/8) 字节</td>
+<td>一个bit表示一个字段是否可以为NULL，顺序是：第一个字节的最低位开始向最高位增长，之后第二个字节的最低位开始向最高位增长，以此类推</td>
+</tr>
+<tr>
+<td>check_sum</td>
+<td>4字节</td>
+<td>校验码</td>
+</tr>
+</tbody>
+</table>
+<h3 id="字节解析示例"><a href="#字节解析示例" class="headerlink" title="字节解析示例"></a>字节解析示例</h3><p>建表语句:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE `test1` (</span><br><span class="line">  `id` int(11) NOT NULL AUTO_INCREMENT,</span><br><span class="line">  `name` varchar(20) COLLATE utf8_bin DEFAULT NULL,</span><br><span class="line">  PRIMARY KEY (`id`)</span><br><span class="line">) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8 COLLATE=utf8_bin</span><br></pre></td></tr></table></figure>
+<p>二进制内容解析：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">公共头部部分省略</span><br><span class="line">6c 00 00 00 00 00 //table_id :小端存储，16进制转换为10进制为108</span><br><span class="line">01 00 //flag :</span><br><span class="line">08 67 61 6e 67 73 68 65 6e 00 //database_name :1个字节是字符串长度，后接一个null-terminated string 第一个字节表示字符串长度为8，后面内容将16进制转换为ascii字符为gangshen</span><br><span class="line">05 74 65 73 74 31 00 //table_name: 1个字节是字符串长度，后接一个null-terminated string第一个字节表示字符串长度为5，后面内容将16进制转换为ascii字符为test1</span><br><span class="line">02 //columns count :packet integer类型，转换之后，数值为2 表示表中有两个字段</span><br><span class="line">03 0f //column type : 一个字节表示一个字段的类型，字段类型定义在enum enum_field_types ，分别是一个int类型以及一个varchar类型,具体的字段类型及记录格式等信息可以查看《MySQL中Rows_event中字段表示》文档</span><br><span class="line">02 //metadata length : packet integer类型,转换之后，数值为2，表示记录表中的metadata内容占用2个字节</span><br><span class="line">14 00 // :varchar 的max length 因为int没有metadata所以跳过</span><br><span class="line">02 //null_bits :int((column_count + 7) / 8)个字节 一个bit表示一个字段是否可以为null </span><br><span class="line">52 53 4a d9 checksum</span><br></pre></td></tr></table></figure>
+<h2 id="Write-rows-log-event"><a href="#Write-rows-log-event" class="headerlink" title="Write_rows_log_event"></a>Write_rows_log_event</h2><p>在以ROW格式记录的binlog文件中，Write_rows_log_event记录了插入的行记录。</p>
+<h3 id="post-header部分-1"><a href="#post-header部分-1" class="headerlink" title="post-header部分"></a>post-header部分</h3><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>字节数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>table_id</td>
+<td>6字节</td>
+<td>操作的表的table_id</td>
+</tr>
+<tr>
+<td>flags</td>
+<td>2字节</td>
+<td>目前版本没有用，都是0，保留给之后的版本使用</td>
+</tr>
+</tbody>
+</table>
+<h3 id="event-body部分-1"><a href="#event-body部分-1" class="headerlink" title="event-body部分"></a>event-body部分</h3><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>字节数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>var_header</td>
+<td>2字节</td>
+<td></td>
+</tr>
+<tr>
+<td>m_width</td>
+<td>packed integer(1或3或4或9个字节)</td>
+<td>表中字段数量</td>
+</tr>
+<tr>
+<td>before_image</td>
+<td>(m_width + 7)/8字节</td>
+<td></td>
+</tr>
+<tr>
+<td>after_bitmap_bits</td>
+<td>(m_with +7)/8字节</td>
+<td>字段值是否为空标记，一个bit表示一个字段是否为NULL，顺序是：第一个字节的最低位开始向最高位增长，之后第二个字节的最低位开始向最高位增长，以此类推</td>
+</tr>
+<tr>
+<td>after_column_content</td>
+<td>不定</td>
+<td>按照顺序每个字段的内容</td>
+</tr>
+<tr>
+<td>check_sum</td>
+<td>4字节</td>
+<td>校验码</td>
+</tr>
+</tbody>
+</table>
+<h3 id="字节解析示例-1"><a href="#字节解析示例-1" class="headerlink" title="字节解析示例"></a>字节解析示例</h3><p>建表语句</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE `int_table` (</span><br><span class="line">  `col1` tinyint(4) DEFAULT NULL,</span><br><span class="line">  `col2` smallint(6) DEFAULT NULL,</span><br><span class="line">  `col3` mediumint(9) DEFAULT NULL,</span><br><span class="line">  `col4` int(11) DEFAULT NULL,</span><br><span class="line">  `col5` bigint(20) DEFAULT NULL,</span><br><span class="line">  `col6` tinyint(1) DEFAULT NULL</span><br><span class="line">) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin</span><br></pre></td></tr></table></figure>
+<p>插入数据:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">insert into int_table values(1,11,111,1111,11111,true);</span><br></pre></td></tr></table></figure>
+<p>对应Write_rows_log_event使用mysqlbinlog解析</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"># at 340</span><br><span class="line">#180103 10:21:20 server id 330619  end_log_pos 395 CRC32 0x50177e10    Write_rows: table id 100 flags: STMT_END_F</span><br><span class="line">### INSERT INTO `gangshen`.`int_table`</span><br><span class="line">### SET</span><br><span class="line">###  @1=1 /* TINYINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @2=11 /* SHORTINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @3=111 /* MEDIUMINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @4=1111 /* INT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @5=11111 /* LONGINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */</span><br><span class="line"># at 395</span><br></pre></td></tr></table></figure>
+<p>解析二进制文件:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">公共头部部分省略</span><br><span class="line">64 00 00 00 00 00 //table_id: 小端存储，16进制转换为10进制为100</span><br><span class="line">01 00 //flag:</span><br><span class="line">02 00 //var header length :小端存储，16进制转换为10进制为2</span><br><span class="line">06 //m_width :packet integer，表示表中字段数量</span><br><span class="line">ff //before image: (m_width + 7) / 8字节</span><br><span class="line">c0 //after_bitmap_bits :insert插入之后的记录的NULL标记，表中六个字段，插入的值都不为NULL</span><br><span class="line">//after_columns_content：insert插入记录之后的记录值</span><br><span class="line">01 </span><br><span class="line">0b 00 </span><br><span class="line">6f 00 00 </span><br><span class="line">57 04 00 00</span><br><span class="line">67 2b 00 00 00 00 00 00</span><br><span class="line">01 </span><br><span class="line">10 7e 17 50 //checksum</span><br></pre></td></tr></table></figure>
+<h2 id="Update-rows-log-event"><a href="#Update-rows-log-event" class="headerlink" title="Update_rows_log_event"></a>Update_rows_log_event</h2><p>在以ROW格式记录的binlog文件中，Update_rows_log_event记录了更新的行记录。</p>
+<h3 id="post-header部分-2"><a href="#post-header部分-2" class="headerlink" title="post-header部分"></a>post-header部分</h3><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>字节数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>table_id</td>
+<td>6字节</td>
+<td>操作的表的table_id</td>
+</tr>
+<tr>
+<td>flags</td>
+<td>2字节</td>
+<td>目前版本没有用，都是0，保留给之后的版本使用</td>
+</tr>
+</tbody>
+</table>
+<h3 id="event-body部分-2"><a href="#event-body部分-2" class="headerlink" title="event-body部分"></a>event-body部分</h3><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>字节数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>var_header</td>
+<td>2字节</td>
+<td></td>
+</tr>
+<tr>
+<td>m_width</td>
+<td>packed integer(1或3或4或9个字节)</td>
+<td>表中字段数量</td>
+</tr>
+<tr>
+<td>before_image</td>
+<td>(m_with+7)/8字节</td>
+<td></td>
+</tr>
+<tr>
+<td>after_image</td>
+<td>(m_with+7)/8字节</td>
+<td></td>
+</tr>
+<tr>
+<td>before_bitmap_bits</td>
+<td>(m_with+7)/8字节</td>
+<td>before_bitmap_bits记录的是update更改之前的记录中，字段值是否为NULL标记，一个bit表示一个字段是否为NULL，顺序是：第一个字节的最低位开始向最高位开始增长，之后第二个字节的最低位开始向最高位增长，以此类推</td>
+</tr>
+<tr>
+<td>before_column_content</td>
+<td>不定</td>
+<td>update更新之前的记录值，按照顺序每个字段的内容</td>
+</tr>
+<tr>
+<td>after_bitmap_bits</td>
+<td>(m_with+7)/8字节</td>
+<td>after_bitmap_bits记录的是update更改之前的记录中，字段值是否为NULL标记，一个bit表示一个字段是否为NULL，顺序是：第一个字节的最低位开始向最高位开始增长，之后第二个字节的最低位开始向最高位增长，以此类推</td>
+</tr>
+<tr>
+<td>after_column_content</td>
+<td>不定</td>
+<td>update更新之后的记录值，按照顺序每个字段的内容</td>
+</tr>
+<tr>
+<td>check_sum</td>
+<td>4字节</td>
+<td>校验码</td>
+</tr>
+</tbody>
+</table>
+<h3 id="字节解析示例-2"><a href="#字节解析示例-2" class="headerlink" title="字节解析示例"></a>字节解析示例</h3><p>建表语句</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE `int_table` (</span><br><span class="line">  `col1` tinyint(4) DEFAULT NULL,</span><br><span class="line">  `col2` smallint(6) DEFAULT NULL,</span><br><span class="line">  `col3` mediumint(9) DEFAULT NULL,</span><br><span class="line">  `col4` int(11) DEFAULT NULL,</span><br><span class="line">  `col5` bigint(20) DEFAULT NULL,</span><br><span class="line">  `col6` tinyint(1) DEFAULT NULL</span><br><span class="line">) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin</span><br></pre></td></tr></table></figure>
+<p>插入数据并更新:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">root@localhost : gangshen 10:20:49&gt; insert into int_table values(1,11,111,1111,11111,true);</span><br><span class="line">Query OK, 1 row affected (0.03 sec)</span><br><span class="line"></span><br><span class="line">root@localhost : gangshen 10:21:20&gt; update int_table set col2=22,col3=222 where col1=1;</span><br><span class="line">Query OK, 1 row affected (0.02 sec)</span><br><span class="line">Rows matched: 1  Changed: 1  Warnings: 0</span><br><span class="line"></span><br><span class="line">root@localhost : gangshen 10:21:44&gt; select * from int_table;</span><br><span class="line">+------+------+------+------+-------+------+</span><br><span class="line">| col1 | col2 | col3 | col4 | col5  | col6 |</span><br><span class="line">+------+------+------+------+-------+------+</span><br><span class="line">|    1 |  22 |  222 | 1111 | 11111 |    1 |</span><br><span class="line">+------+------+------+------+-------+------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>对应Update_rows_log_event使用mysqlbinlog解析</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"># at 644</span><br><span class="line">#180103 10:41:37 server id 9999  end_log_pos 720 CRC32 0x5576b52f    Update_rows: table id 231 flags: STMT_END_F</span><br><span class="line">### UPDATE `gangshen`.`int_table`</span><br><span class="line">### WHERE</span><br><span class="line">###  @1=1 /* TINYINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @2=11 /* SHORTINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @3=111 /* MEDIUMINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @4=1111 /* INT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @5=11111 /* LONGINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">### SET</span><br><span class="line">###  @1=1 /* TINYINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @2=22 /* SHORTINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @3=222 /* MEDIUMINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @4=1111 /* INT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @5=11111 /* LONGINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */</span><br><span class="line"># at 720</span><br></pre></td></tr></table></figure>
+<p>解析二进制文件:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">公共头部部分省略。。。</span><br><span class="line">64 00 00 00 00 00 //table_id: 小端存储，16进制转换为10进制为100</span><br><span class="line">01 00 //flag:</span><br><span class="line">02 00 //var header length :小端存储，16进制转换为10进制为2</span><br><span class="line">06 //m_width :packet integer，表示表中字段数量</span><br><span class="line">ff //before image: (m_width + 7) / 8字节</span><br><span class="line">ff //after image: (m_width + 7) / 8字节</span><br><span class="line">c0 //before_bitmap_bits :update更新之前记录中NULL标记，表中六个字段，值都不为NULL</span><br><span class="line">//before_column_content接下来是update更新之前记录的值</span><br><span class="line">01 </span><br><span class="line">0b 00</span><br><span class="line">6f 00 00 </span><br><span class="line">57 04 00 00</span><br><span class="line">67 2b 00 00 00 00 00 00</span><br><span class="line">01 </span><br><span class="line">c0 //after_bitmap_bits :update更新之后记录中NULL标记，表中六个字段，值都不为NULL</span><br><span class="line">//after_column_content接下来是update更新之前记录的值</span><br><span class="line">01 </span><br><span class="line">16 00 </span><br><span class="line">de 00 00 </span><br><span class="line">57 04 00 00</span><br><span class="line">67 2b 00 00 00 00 00 00 </span><br><span class="line">01 </span><br><span class="line">16 a3 de bb //checksum</span><br></pre></td></tr></table></figure>
+<h2 id="Delete-rows-log-event"><a href="#Delete-rows-log-event" class="headerlink" title="Delete_rows_log_event"></a>Delete_rows_log_event</h2><p>在以ROW格式记录的binlog文件中，Delete_rows_log_event记录了删除的行记录。</p>
+<h3 id="post-header部分-3"><a href="#post-header部分-3" class="headerlink" title="post-header部分"></a>post-header部分</h3><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>字节数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>table_id</td>
+<td>6字节</td>
+<td>操作的表的table_id</td>
+</tr>
+<tr>
+<td>flags</td>
+<td>2字节</td>
+<td>目前版本没有用，都是0，保留给之后的版本使用</td>
+</tr>
+</tbody>
+</table>
+<h3 id="event-body部分-3"><a href="#event-body部分-3" class="headerlink" title="event-body部分"></a>event-body部分</h3><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>字节数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>var_header</td>
+<td>2字节</td>
+<td></td>
+</tr>
+<tr>
+<td>m_width</td>
+<td>packed integer(1或3或4或9个字节)</td>
+<td>表中字段数量</td>
+</tr>
+<tr>
+<td>after_image</td>
+<td>(m_width + 7)/8字节</td>
+<td></td>
+</tr>
+<tr>
+<td>before_bitmap_bits</td>
+<td>(m_with+7)/8字节</td>
+<td>before_bitmap_bits记录的是update更改之前的记录中，字段值是否为NULL标记，一个bit表示一个字段是否为NULL，顺序是：第一个字节的最低位开始向最高位开始增长，之后第二个字节的最低位开始向最高位增长，以此类推</td>
+</tr>
+<tr>
+<td>before_column_content</td>
+<td>不定</td>
+<td>delete删除之前的记录值，按照顺序每个字段的内容</td>
+</tr>
+<tr>
+<td>check_sum</td>
+<td>4字节</td>
+<td>校验码</td>
+</tr>
+</tbody>
+</table>
+<h3 id="字节解析示例-3"><a href="#字节解析示例-3" class="headerlink" title="字节解析示例"></a>字节解析示例</h3><p>建表语句</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE `int_table` (</span><br><span class="line">  `col1` tinyint(4) DEFAULT NULL,</span><br><span class="line">  `col2` smallint(6) DEFAULT NULL,</span><br><span class="line">  `col3` mediumint(9) DEFAULT NULL,</span><br><span class="line">  `col4` int(11) DEFAULT NULL,</span><br><span class="line">  `col5` bigint(20) DEFAULT NULL,</span><br><span class="line">  `col6` tinyint(1) DEFAULT NULL</span><br><span class="line">) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin</span><br></pre></td></tr></table></figure>
+<p>删除数据:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">delete from int_table where col1=1;</span><br></pre></td></tr></table></figure>
+<p>对应Delete_rows_log_event使用mysqlbinlog解析</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"># at 320</span><br><span class="line">#180103 14:24:54 server id 330619  end_log_pos 375 CRC32 0xce4818b2    Delete_rows: table id 100 flags: STMT_END_F</span><br><span class="line">### DELETE FROM `gangshen`.`int_table`</span><br><span class="line">### WHERE</span><br><span class="line">###  @1=1 /* TINYINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @2=22 /* SHORTINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @3=222 /* MEDIUMINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @4=1111 /* INT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @5=11111 /* LONGINT meta=0 nullable=1 is_null=0 */</span><br><span class="line">###  @6=1 /* TINYINT meta=0 nullable=1 is_null=0 */</span><br><span class="line"># at 375</span><br></pre></td></tr></table></figure>
+<p>解析二进制文件:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">公共头部部分省略</span><br><span class="line">64 00 00 00 00 00 //table_id: 小端存储，16进制转换为10进制为100</span><br><span class="line">01 00 //flag:</span><br><span class="line">02 00 //var header length :小端存储，16进制转换为10进制为2</span><br><span class="line">06 //m_width :packet integer，表示表中字段数量</span><br><span class="line">ff //after image: (m_width + 7) / 8字节</span><br><span class="line">c0 //before_bitmap_bits :delete删除之前的记录的NULL标记，表中六个字段，值都不为NULL</span><br><span class="line">//before_columns_content：delete删除记录之前的记录值</span><br><span class="line">01 </span><br><span class="line">16 00 </span><br><span class="line">de 00 00 </span><br><span class="line">57 04 00 00</span><br><span class="line">67 2b 00 00 00 00 00 00</span><br><span class="line">01 </span><br><span class="line">10 7e 17 50 //checksum</span><br></pre></td></tr></table></figure>
+<h2 id="Xid-event"><a href="#Xid-event" class="headerlink" title="Xid_event"></a>Xid_event</h2><p>表示支持内部XA的存储引擎上的事务提交。正常的事务是通过<code>QUERY_EVENT</code>来发送一个<code>BEGIN</code>语句并且通过<code>QUERY_EVENT</code>来发送一个<code>COMMIT</code>语句（如果事务回滚则发送的是<code>ROLLBACK</code>）实现。</p>
+<h3 id="post-header部分-4"><a href="#post-header部分-4" class="headerlink" title="post-header部分"></a>post-header部分</h3><p>无</p>
+<h3 id="event-body部分-4"><a href="#event-body部分-4" class="headerlink" title="event-body部分"></a>event-body部分</h3><table>
+<thead>
+<tr>
+<th>字段</th>
+<th>字节数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>xid</td>
+<td>8字节</td>
+<td>xid号，小端存储，无符号数</td>
+</tr>
+<tr>
+<td>check_sum</td>
+<td>4字节</td>
+<td>校验码</td>
+</tr>
+</tbody>
+</table>
+<h3 id="字节解析示例-4"><a href="#字节解析示例-4" class="headerlink" title="字节解析示例"></a>字节解析示例</h3><p>使用mysqlbinlog工具解析对应的Xid_event</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># at 1691</span><br><span class="line">#180103 15:30:45 server id 330619  end_log_pos 1722 CRC32 0x8816181c    Xid = 2698</span><br><span class="line">COMMIT/*!*/;</span><br><span class="line"># at 1722</span><br></pre></td></tr></table></figure>
+<p>解析二进制文件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">公共头部部分省略...</span><br><span class="line">8a 0a 00 00 00 00 00 00 //xid,因为是小端存储，所以实际为0x 00 00 00 00 00 00 0a 8a，转换为10进制为2698</span><br><span class="line">1c 18 16 88 //check_sum</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+              <a href="/tags/Binlog/" rel="tag"># Binlog</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/12/07/MySQL Binlog(五)——MySQL常见binlog event解析（上）/" rel="prev" title="MySQL Binlog(五)——MySQL常见binlog event解析（上）">
+      <i class="fa fa-chevron-left"></i> MySQL Binlog(五)——MySQL常见binlog event解析（上）
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/12/07/MySQL Binlog(七)——MySQL常见binlog event解析（下）/" rel="next" title="MySQL Binlog(七)——MySQL常见binlog event解析（下）">
+      MySQL Binlog(七)——MySQL常见binlog event解析（下） <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#MySQL-Binlog-六-——MySQL常见binlog-event解析（中）"><span class="nav-number">1.</span> <span class="nav-text">MySQL Binlog(六)——MySQL常见binlog event解析（中）</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Table-map-event"><span class="nav-number">1.2.</span> <span class="nav-text">Table_map_event</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#post-header部分"><span class="nav-number">1.2.1.</span> <span class="nav-text">post-header部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#event-body部分"><span class="nav-number">1.2.2.</span> <span class="nav-text">event-body部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#字节解析示例"><span class="nav-number">1.2.3.</span> <span class="nav-text">字节解析示例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Write-rows-log-event"><span class="nav-number">1.3.</span> <span class="nav-text">Write_rows_log_event</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#post-header部分-1"><span class="nav-number">1.3.1.</span> <span class="nav-text">post-header部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#event-body部分-1"><span class="nav-number">1.3.2.</span> <span class="nav-text">event-body部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#字节解析示例-1"><span class="nav-number">1.3.3.</span> <span class="nav-text">字节解析示例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Update-rows-log-event"><span class="nav-number">1.4.</span> <span class="nav-text">Update_rows_log_event</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#post-header部分-2"><span class="nav-number">1.4.1.</span> <span class="nav-text">post-header部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#event-body部分-2"><span class="nav-number">1.4.2.</span> <span class="nav-text">event-body部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#字节解析示例-2"><span class="nav-number">1.4.3.</span> <span class="nav-text">字节解析示例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Delete-rows-log-event"><span class="nav-number">1.5.</span> <span class="nav-text">Delete_rows_log_event</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#post-header部分-3"><span class="nav-number">1.5.1.</span> <span class="nav-text">post-header部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#event-body部分-3"><span class="nav-number">1.5.2.</span> <span class="nav-text">event-body部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#字节解析示例-3"><span class="nav-number">1.5.3.</span> <span class="nav-text">字节解析示例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Xid-event"><span class="nav-number">1.6.</span> <span class="nav-text">Xid_event</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#post-header部分-4"><span class="nav-number">1.6.1.</span> <span class="nav-text">post-header部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#event-body部分-4"><span class="nav-number">1.6.2.</span> <span class="nav-text">event-body部分</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#字节解析示例-4"><span class="nav-number">1.6.3.</span> <span class="nav-text">字节解析示例</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

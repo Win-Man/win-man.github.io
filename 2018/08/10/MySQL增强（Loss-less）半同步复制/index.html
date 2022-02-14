@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="原文地址：http://my-replication-life.blogspot.com/2013/09/loss-less-semi-synchronous-replication.html?view=classic原文作者： Sunny Bains, Jiamin Huang (University of Michigan)译者：沈刚  前言许多用户在他们的数据库环境中使用半同步复制架构以提">
+<meta name="keywords" content="MySQL,Replication">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL增强（Loss-less）半同步复制">
+<meta property="og:url" content="http://yoursite.com/2018/08/10/MySQL增强（Loss-less）半同步复制/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="原文地址：http://my-replication-life.blogspot.com/2013/09/loss-less-semi-synchronous-replication.html?view=classic原文作者： Sunny Bains, Jiamin Huang (University of Michigan)译者：沈刚  前言许多用户在他们的数据库环境中使用半同步复制架构以提">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://2.bp.blogspot.com/-6aMYLMuhBmg/UjKOkzQcrMI/AAAAAAAAABw/Z9S9GKszGGs/s640/after_sync.jpg">
+<meta property="og:image" content="http://3.bp.blogspot.com/-1mGL5sMoRIs/UjKCpOBUVQI/AAAAAAAAABg/wV7_pHwCGis/s640/after_commit.jpg">
+<meta property="og:image" content="http://4.bp.blogspot.com/-7wnqu8CB7B4/UjKpRoc7COI/AAAAAAAAACA/X9V0SPOf54o/s400/failover.jpg">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL增强（Loss-less）半同步复制">
+<meta name="twitter:description" content="原文地址：http://my-replication-life.blogspot.com/2013/09/loss-less-semi-synchronous-replication.html?view=classic原文作者： Sunny Bains, Jiamin Huang (University of Michigan)译者：沈刚  前言许多用户在他们的数据库环境中使用半同步复制架构以提">
+<meta name="twitter:image" content="http://2.bp.blogspot.com/-6aMYLMuhBmg/UjKOkzQcrMI/AAAAAAAAABw/Z9S9GKszGGs/s640/after_sync.jpg">
+
+<link rel="canonical" href="http://yoursite.com/2018/08/10/MySQL增强（Loss-less）半同步复制/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL增强（Loss-less）半同步复制 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/08/10/MySQL增强（Loss-less）半同步复制/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL增强（Loss-less）半同步复制
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2018-08-10 17:12:13" itemprop="dateCreated datePublished" datetime="2018-08-10T17:12:13+00:00">2018-08-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>原文地址：<a href="http://my-replication-life.blogspot.com/2013/09/loss-less-semi-synchronous-replication.html?view=classic" target="_blank" rel="noopener">http://my-replication-life.blogspot.com/2013/09/loss-less-semi-synchronous-replication.html?view=classic</a><br>原文作者： Sunny Bains, Jiamin Huang (University of Michigan)<br>译者：沈刚</p>
+</blockquote>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>许多用户在他们的数据库环境中使用半同步复制架构以提高数据的完整性。今天我要向大家介绍一下MySQL在5.7版本中针对半同步复制增加的新特性，这个新特性进一步增强了主库和备库之间的数据完整性。</p>
+<h2 id="在存储引擎层提交之前等待从库ACK"><a href="#在存储引擎层提交之前等待从库ACK" class="headerlink" title="在存储引擎层提交之前等待从库ACK"></a>在存储引擎层提交之前等待从库ACK</h2><p>正如你所知的，在半同步复制架构中，主库上的事务提交之前会等待一个从库返回ACK信号。为了进一步增加数据的完整性，新的特性将等待从库返回ACK信号的时间点提前了（相对于MySQL5.5以及MySQL5.6），新特性中主库上的事务会在存储引擎层提交之前一直等待从库返回ACK信号。<br><img src="http://2.bp.blogspot.com/-6aMYLMuhBmg/UjKOkzQcrMI/AAAAAAAAABw/Z9S9GKszGGs/s640/after_sync.jpg" alt></p>
+<p>有了这个新特性之后，半同步复制可以保证：</p>
+<ul>
+<li>在主库crash的情况下，所有在主库上已经提交的事务已经被复制到至少一个从库上</li>
+</ul>
+<p>显而易见，因为主库上的事务无法提交，除非从库返回了ACK信号（或者超时）。<br>这对于用户来说有两个有利点：</p>
+<ul>
+<li>强数据完整性，并解决了幻读的问题</li>
+<li>简化主库Crash Recovery的过程</li>
+</ul>
+<h2 id="强数据完整性解决幻读问题"><a href="#强数据完整性解决幻读问题" class="headerlink" title="强数据完整性解决幻读问题"></a>强数据完整性解决幻读问题</h2><p>在MySQL 5.5以及MySQL 5.6开启半同步复制的场景下，主库上的事务在存储引擎层提交之后，需要等待从库返回ACK信号。并且在接收到从库返回ACK信号或者等待超时才会返回给客户端一个提交结果。<br><img src="http://3.bp.blogspot.com/-1mGL5sMoRIs/UjKCpOBUVQI/AAAAAAAAABg/wV7_pHwCGis/s640/after_commit.jpg" alt></p>
+<p>存储引擎层的提交，会持久化记录并且释放这些记录上的锁。所以在存储引擎层提交之后，其余的会话可以操作并读取这些记录，即使这个会话还在等待从库返回ACK信号。这样在主库crash，从库接管主库的情况下，产生幻读的现象。<br><img src="http://4.bp.blogspot.com/-7wnqu8CB7B4/UjKpRoc7COI/AAAAAAAAACA/X9V0SPOf54o/s400/failover.jpg" alt></p>
+<p>在这个新特性中，不会发生幻读。User2在第一次SELECT的时候不会获取3这个值，因为3这条记录还没有复制从库，所以并没有在存储引擎层提交。</p>
+<h2 id="简化主库Crash-Recovery的过程"><a href="#简化主库Crash-Recovery的过程" class="headerlink" title="简化主库Crash Recovery的过程"></a>简化主库Crash Recovery的过程</h2><p>在MySQL 5.7.2之前的版本中，用户在恢复crash掉的主库的时候，需要做以下操作：</p>
+<ul>
+<li>手动清除并没有被复制到从库上的binlog事务</li>
+<li>手动回滚已经提交但是还没有被复制的事务</li>
+</ul>
+<p>因为新的特性保证所有的事务在提交之前都至少复制到一个从库上了，所以第二步可以不用做了。</p>
+<h2 id="如何设置新特性"><a href="#如何设置新特性" class="headerlink" title="如何设置新特性"></a>如何设置新特性</h2><p>这个特性的设置很简单，用户无需任何设置，因为在MySQL 5.7.2版本之后该特性是默认开启的。用户可以设置<code>rpl_semi_sync_master_wait_point</code>变量控制主库等待从库返回ACK信号的时间点。</p>
+<p>这是一个全局、可动态修改的参数。在5.7.2版本之后，该变量的默认值是<code>AFTER_SYNC</code>，该值表示，主库上的事务会在flush binlog之后，在存储引擎层提交之前的时间点，等待从库返回ACK信号。</p>
+<p>你也可以将该参数设置为<code>AFTER_COMMIT</code>值不开启新特性，保持和之前版本一样的机制。但是我想不到一个理由让用户设置该变量为<code>AFTER_COMMIT</code>值。开启新特性并没有副作用，也不会对数据库性能产生影响。</p>
+<h2 id="Dump线程的优化"><a href="#Dump线程的优化" class="headerlink" title="Dump线程的优化"></a>Dump线程的优化</h2><p>在开发这个特性的过程中，我们对Dump线程做了一些优化。我们重构了Dump线程先关的代码，但是更重要的是，在Dump线程读取binlog event的时候，Dump线程不会再去获取binlog锁。这一改进增加了主库的一个吞吐量并且减小了主从之间的延迟。</p>
+<h2 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h2><p>总而言之，这个新特性保证了主库和从库之间的数据完整性、一致性，并不会带来任何副作用以及性能印象。我强烈推荐你去尝试该特性。</p>
+<p>A special thanks to Mr. Zhenxing Zhou a community user who contributed a patch implementing a similar idea based on MySQL 5.5. Even though we did not take his patch (the 5.7 codebase changed quite a lot compared to 5.5), his feature request was yet another source of motivation and inspiration.</p>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+              <a href="/tags/Replication/" rel="tag"># Replication</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/07/04/MySQL8.0——Resource Group（资源组）/" rel="prev" title="MySQL8.0——Resource Group">
+      <i class="fa fa-chevron-left"></i> MySQL8.0——Resource Group
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/10/30/MySQL5.7中的sql_mode默认值/" rel="next" title="MySQL5.7中的sql_mode默认值">
+      MySQL5.7中的sql_mode默认值 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#在存储引擎层提交之前等待从库ACK"><span class="nav-number">2.</span> <span class="nav-text">在存储引擎层提交之前等待从库ACK</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#强数据完整性解决幻读问题"><span class="nav-number">3.</span> <span class="nav-text">强数据完整性解决幻读问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#简化主库Crash-Recovery的过程"><span class="nav-number">4.</span> <span class="nav-text">简化主库Crash Recovery的过程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#如何设置新特性"><span class="nav-number">5.</span> <span class="nav-text">如何设置新特性</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Dump线程的优化"><span class="nav-number">6.</span> <span class="nav-text">Dump线程的优化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#最后"><span class="nav-number">7.</span> <span class="nav-text">最后</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

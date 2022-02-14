@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="文章来源：itsCoder 的 WeeklyBolg 项目 itsCoder主页：http://itscoder.com/ 作者：Win_Man 审阅者：JangGwa   　　学习 Java 的过程中，我们已经接触到了各种各样的流：输入流、输出流、文件输入流、文件输出流等等，但是在 Java8 中又提出了一个流的概念，这篇文章就来讲讲 Java8 中的流，看看它与以前了解的流究竟有什么关系。">
+<meta name="keywords" content="流">
+<meta property="og:type" content="article">
+<meta property="og:title" content="讲讲 Java8 中的流">
+<meta property="og:url" content="http://yoursite.com/2016/10/21/讲讲Java8中的流/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="文章来源：itsCoder 的 WeeklyBolg 项目 itsCoder主页：http://itscoder.com/ 作者：Win_Man 审阅者：JangGwa   　　学习 Java 的过程中，我们已经接触到了各种各样的流：输入流、输出流、文件输入流、文件输出流等等，但是在 Java8 中又提出了一个流的概念，这篇文章就来讲讲 Java8 中的流，看看它与以前了解的流究竟有什么关系。">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.114Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="讲讲 Java8 中的流">
+<meta name="twitter:description" content="文章来源：itsCoder 的 WeeklyBolg 项目 itsCoder主页：http://itscoder.com/ 作者：Win_Man 审阅者：JangGwa   　　学习 Java 的过程中，我们已经接触到了各种各样的流：输入流、输出流、文件输入流、文件输出流等等，但是在 Java8 中又提出了一个流的概念，这篇文章就来讲讲 Java8 中的流，看看它与以前了解的流究竟有什么关系。">
+<meta name="twitter:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+
+<link rel="canonical" href="http://yoursite.com/2016/10/21/讲讲Java8中的流/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>讲讲 Java8 中的流 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/10/21/讲讲Java8中的流/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          讲讲 Java8 中的流
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2016-10-21 20:46:25" itemprop="dateCreated datePublished" datetime="2016-10-21T20:46:25+00:00">2016-10-21</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java/" itemprop="url" rel="index"><span itemprop="name">Java</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<ul>
+<li>文章来源：itsCoder 的 <a href="https://github.com/itsCoder/weeklyblog" target="_blank" rel="noopener">WeeklyBolg</a> 项目</li>
+<li>itsCoder主页：<a href="http://itscoder.com/" target="_blank" rel="noopener">http://itscoder.com/</a></li>
+<li>作者：<a href="https://github.com/Win-Man" target="_blank" rel="noopener">Win_Man</a></li>
+<li>审阅者：<a href="https://github.com/JangGwa" target="_blank" rel="noopener">JangGwa</a></li>
+</ul>
+</blockquote>
+<p>　　学习 Java 的过程中，我们已经接触到了各种各样的流：输入流、输出流、文件输入流、文件输出流等等，但是在 Java8 中又提出了一个流的概念，这篇文章就来讲讲 Java8 中的流，看看它与以前了解的流究竟有什么关系。</p>
+<h2 id="1-什么是流"><a href="#1-什么是流" class="headerlink" title="1. 什么是流"></a>1. 什么是流</h2><p>　　在 《Java8实战》 这本书中，流的定义是</p>
+<blockquote>
+<p>从支持数据处理操作的源生成的元素序列</p>
+</blockquote>
+<p> 　　按照我的理解，流就是一种在 Java8 中新提出的数据集合。这个新的数据集合提供一系列的 API ，可以方便我们对集合进行数据的筛选、转换等操作。</p>
+<h2 id="2-流之初体验"><a href="#2-流之初体验" class="headerlink" title="2. 流之初体验"></a>2. 流之初体验</h2><blockquote>
+<p>阅读应该是人生活中就像阳光、空气和水一样自然而然的存在。</p>
+</blockquote>
+<p>　　我就拿书作为例子来讲讲 Java8 中的流。首先，我们先来看看流到底是怎么样的，以及流的作用。定义一个 Book 的实体类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Book</span> </span>&#123;</span><br><span class="line">	<span class="comment">//书名</span></span><br><span class="line">    <span class="keyword">private</span> String name;</span><br><span class="line">	<span class="comment">//作者</span></span><br><span class="line">    <span class="keyword">private</span> String author;</span><br><span class="line">	<span class="comment">//价格</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">double</span> price;</span><br><span class="line">	<span class="comment">//出版社</span></span><br><span class="line">    <span class="keyword">private</span> String publish;</span><br><span class="line">	<span class="comment">//出版年份</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">int</span> publishYear;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">Book</span><span class="params">(String name,String author,<span class="keyword">double</span> price,String publish,<span class="keyword">int</span> publishYear)</span></span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.name = name;</span><br><span class="line">        <span class="keyword">this</span>.author = author;</span><br><span class="line">        <span class="keyword">this</span>.price = price;</span><br><span class="line">        <span class="keyword">this</span>.publish = publish;</span><br><span class="line">        <span class="keyword">this</span>.publishYear = publishYear;</span><br><span class="line">    &#125;</span><br><span class="line">	<span class="comment">/*省略set和get方法*/</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>　　假使我们现在有很多本书，给我们的要求是找出这些书中所有在 2000 年以前出版的书的名字。这个任务看起来一点都不难啊，老司机一下子就能写好：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Book&gt; books = Arrays.asList(</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名一"</span>, <span class="string">"作者甲"</span>, <span class="number">19.8</span>, <span class="string">"一号出版社"</span>, <span class="number">1995</span>),</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名二"</span>, <span class="string">"作者乙"</span>, <span class="number">99.8</span>, <span class="string">"一号出版社"</span>, <span class="number">2016</span>),</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名三"</span>, <span class="string">"作者乙"</span>, <span class="number">9.9</span>, <span class="string">"一号出版社"</span>, <span class="number">1994</span>),</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名四"</span>, <span class="string">"作者甲"</span>, <span class="number">21.3</span>, <span class="string">"一号出版社"</span>, <span class="number">1998</span>),</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名五"</span>, <span class="string">"作者乙"</span>, <span class="number">30.2</span>, <span class="string">"一号出版社"</span>, <span class="number">1999</span>),</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名六"</span>, <span class="string">"作者丙"</span>, <span class="number">15.7</span>, <span class="string">"二号出版社"</span>, <span class="number">2000</span>),</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名七"</span>, <span class="string">"作者甲"</span>, <span class="number">49.0</span>, <span class="string">"二号出版社"</span>, <span class="number">2007</span>),</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名八"</span>, <span class="string">"作者丁"</span>, <span class="number">72.0</span>, <span class="string">"二号出版社"</span>, <span class="number">2012</span>),</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名九"</span>, <span class="string">"作者丙"</span>, <span class="number">98.0</span>, <span class="string">"二号出版社"</span>, <span class="number">2015</span>),</span><br><span class="line">        <span class="keyword">new</span> Book(<span class="string">"书名十"</span>, <span class="string">"作者丁"</span>, <span class="number">100.0</span>, <span class="string">"二号出版社"</span>, <span class="number">2014</span>)</span><br><span class="line">);</span><br><span class="line">List&lt;String&gt; bookNames = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line"><span class="keyword">for</span> (Book book : books) &#123;</span><br><span class="line">    <span class="keyword">if</span> (book.getPublishYear() &lt; <span class="number">2000</span>) &#123;</span><br><span class="line">        bookNames.add(book.getName());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>　　但是使用流的写法可以更简便，一句话就能搞定：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">List&lt;String&gt; bookNamesNew = books.stream()</span><br><span class="line">                .filter(b -&gt; b.getPublishYear() &lt; <span class="number">2000</span>)</span><br><span class="line">                .map(Book::getName)</span><br><span class="line">                .collect(toList());</span><br></pre></td></tr></table></figure>
+<p>　　这里用到了 Lambda 写法，不会的可以参考之前的文章。这个任务比较简单，所以并不能很好说明流的好处，但是这只是为了简单的介绍一下流可以做什么，现在大家应该已经有一个初步的印象了。等了解完流其他的功能之后，更加能体会到流的好用之处。</p>
+<h2 id="3-流之再体验"><a href="#3-流之再体验" class="headerlink" title="3. 流之再体验"></a>3. 流之再体验</h2><p>　　使用流来处理问题的时候，一般有三个步骤：</p>
+<ol>
+<li>获取流，像上面的 <code>books.stream()</code> 返回的是一个 <code>Stream&lt;T&gt;</code> 的流对象</li>
+<li>执行<strong>中间操作</strong>对数据进行处理，上面的 <code>fliter()</code> 和 <code>map()</code> 都是对流中的数据进行处理操作</li>
+<li>执行<strong>终端操作</strong>获得预期的返回结果，<code>collect(toList())</code> 根据我们的预期返回 <code>List</code> 类型的数据     </li>
+</ol>
+<p>　　Java8 中的流有一个很重要的特性就是<strong>并行处理</strong>，对于数据的处理不是一个步骤一个步骤地处理，而是像流水线一样处理，这个并行处理并不需要我们处理，Java 内部就会帮我们实现。只需要更改一下获取流对象的方法就行，将<code>stream()</code> 方法改为 <code>parallelStream()</code> 方法即可。上面代码中的 <code>filter()</code> 、 <code>map()</code> 和 <code>collect()</code> 这几个操作其实是并行处理的。这就省去了我们代码优化啊、实现多线程啊一系列工作。</p>
+<h3 id="3-1-中间操作"><a href="#3-1-中间操作" class="headerlink" title="3.1 中间操作"></a>3.1 中间操作</h3><p>　　<strong>中间操作</strong>是对流对象进行处理的操作，中间操作会返回一个流对象，这样多个中间操作可以连起来，形成流水线。下面介绍一下主要的一些中间操作:</p>
+<h4 id="3-1-1-筛选操作"><a href="#3-1-1-筛选操作" class="headerlink" title="3.1.1 筛选操作"></a>3.1.1 筛选操作</h4><p><strong>源码定义</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Stream&lt;T&gt; <span class="title">filter</span><span class="params">(Predicate&lt;? <span class="keyword">super</span> T&gt; predicate)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>通过传入一个 <code>Predicate</code> 类型的 Lambda 表达式，对流对象中的数据进行筛选。</p>
+<p><strong>写法示例</strong>：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Book&gt; books1 = books.stream()</span><br><span class="line">				.filter(b -&gt; b.getPublishYear() &lt; <span class="number">2000</span>)</span><br><span class="line">				.collect(toList());</span><br></pre></td></tr></table></figure></p>
+<h4 id="3-1-2-去重操作"><a href="#3-1-2-去重操作" class="headerlink" title="3.1.2 去重操作"></a>3.1.2 去重操作</h4><p><strong>源码定义</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Stream&lt;T&gt; <span class="title">distinct</span><span class="params">()</span></span>;</span><br></pre></td></tr></table></figure>
+<p>对流对象中的数据进行去重，其判断对象是否一样调用的是 <code>equals()</code> 方法。</p>
+<p><strong>写法示例</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Book&gt; books2 = books.stream()</span><br><span class="line">        .filter(b -&gt; b.getPublishYear() &lt; <span class="number">2000</span>)</span><br><span class="line">        .distinct()</span><br><span class="line">        .collect(toList());</span><br></pre></td></tr></table></figure>
+<h4 id="3-1-3-限制返回个数"><a href="#3-1-3-限制返回个数" class="headerlink" title="3.1.3 限制返回个数"></a>3.1.3 限制返回个数</h4><p><strong>源码定义</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Stream&lt;T&gt; <span class="title">limit</span><span class="params">(<span class="keyword">long</span> maxSize)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>对流操作返回的结果中的个数进行限制，按顺序返回前 <code>maxSize</code> 个元素，若元素个数不足 <code>maxSize</code> 则返回所有元素。</p>
+<p><strong>写法示例</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Book&gt; books3 = books.stream()</span><br><span class="line">        .filter(b -&gt; b.getPublishYear() &lt; <span class="number">2000</span>)</span><br><span class="line">        .limit(<span class="number">3</span>)</span><br><span class="line">        .collect(toList());</span><br></pre></td></tr></table></figure>
+<h4 id="3-1-4-跳过操作"><a href="#3-1-4-跳过操作" class="headerlink" title="3.1.4 跳过操作"></a>3.1.4 跳过操作</h4><p><strong>源码定义</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Stream&lt;T&gt; <span class="title">skip</span><span class="params">(<span class="keyword">long</span> n)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>将流对象中前 n 个元素去除，并返回一个流对象，如果元素个数不足 n ，则返回一个数据为空的一个流对象。</p>
+<p><strong>写法示例</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Book&gt; books4 = books.stream()</span><br><span class="line">        .filter(b -&gt; b.getPublishYear() &lt; <span class="number">2000</span>)</span><br><span class="line">        .skip(<span class="number">3</span>)</span><br><span class="line">        .collect(toList());</span><br></pre></td></tr></table></figure>
+<h4 id="3-1-5-映射操作"><a href="#3-1-5-映射操作" class="headerlink" title="3.1.5 映射操作"></a>3.1.5 映射操作</h4><p><strong>源码定义</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&lt;R&gt; <span class="function">Stream&lt;R&gt; <span class="title">map</span><span class="params">(Function&lt;? <span class="keyword">super</span> T, ? extends R&gt; mapper)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>通过传入一个 <code>Function</code> 类型的函数式接口，完成流对象中元素的类型转换功能。</p>
+<p><strong>写法示例</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">List&lt;String&gt; books5 = books.stream()</span><br><span class="line">        .map(Book::getName)</span><br><span class="line">        .collect(toList());</span><br></pre></td></tr></table></figure>
+<h4 id="3-1-6-排序操作"><a href="#3-1-6-排序操作" class="headerlink" title="3.1.6 排序操作"></a>3.1.6 排序操作</h4><p><strong>源码定义</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Stream&lt;T&gt; <span class="title">sorted</span><span class="params">()</span></span>;</span><br><span class="line"><span class="function">Stream&lt;T&gt; <span class="title">sorted</span><span class="params">(Comparator&lt;? <span class="keyword">super</span> T&gt; comparator)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>有默认排序和自定义排序，自定义排序的话，传入一个 <code>Comparator</code> 类型的函数式接口，按照自己预期的情况进行排序，返回排序之后的流对象。</p>
+<p><strong>写法示例</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Book&gt; books6 = books.stream()</span><br><span class="line">                .sorted()</span><br><span class="line">                .collect(toList());</span><br></pre></td></tr></table></figure>
+<h3 id="3-2-终端操作"><a href="#3-2-终端操作" class="headerlink" title="3.2 终端操作"></a>3.2 终端操作</h3><p>　　<strong>终端操作</strong>将流对象转换成我们所期望的结果，终端操作是流水线上的最后一个操作，一般终端操作都不会像中间操作一样返回一个流对象。因为流对象像迭代器一样只能遍历一次，所以当流对象遇到终端操作之后，整个流水线就结束了。</p>
+<h4 id="3-2-1-返回集合"><a href="#3-2-1-返回集合" class="headerlink" title="3.2.1 返回集合"></a>3.2.1 返回集合</h4><p><strong>源码定义</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&lt;R&gt; <span class="function">R <span class="title">collect</span><span class="params">(Supplier&lt;R&gt; supplier,</span></span></span><br><span class="line"><span class="function"><span class="params">                  BiConsumer&lt;R, ? <span class="keyword">super</span> T&gt; accumulator,</span></span></span><br><span class="line"><span class="function"><span class="params">                  BiConsumer&lt;R, R&gt; combiner)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>通过传入参数来确定返回的结果类型，像之前一直用的 <code>collect(toList())</code> 就是说将对象流转换成 <code>List</code> 类型的集合，<code>toList()</code> 是在 <code>java.util.stream.Collectors</code> 中定义好的， Java8 已经为我们准备好了一些常用的转换规则，这可以在 <code>java.util.stream.Collectors</code> 中找到。</p>
+<p><strong>写法示例</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Book&gt; books1 = books.stream()</span><br><span class="line">				.filter(b -&gt; b.getPublishYear() &lt; <span class="number">2000</span>)</span><br><span class="line">				.collect(toList());</span><br></pre></td></tr></table></figure>
+<h4 id="3-2-2-查找是否至少存在一个"><a href="#3-2-2-查找是否至少存在一个" class="headerlink" title="3.2.2 查找是否至少存在一个"></a>3.2.2 查找是否至少存在一个</h4><p><strong>源码定义</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">boolean</span> <span class="title">anyMatch</span><span class="params">(Predicate&lt;? <span class="keyword">super</span> T&gt; predicate)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>判断流对象中是否存在满足 <code>Predicate</code> 类型的元素，如果存在则返回 <code>true</code>，否则返回 <code>false</code>。</p>
+<p><strong>写法示例</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">boolean</span> books7 = books.stream()</span><br><span class="line">                .anyMatch(b -&gt; b.getPublishYear() &lt; <span class="number">2000</span>);</span><br></pre></td></tr></table></figure>
+<h4 id="3-2-3-查找第一个元素"><a href="#3-2-3-查找第一个元素" class="headerlink" title="3.2.3 查找第一个元素"></a>3.2.3 查找第一个元素</h4><p><strong>源码定义</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Optional&lt;T&gt; <span class="title">findFirst</span><span class="params">()</span></span>;</span><br><span class="line">``` </span><br><span class="line"></span><br><span class="line">返回流对象中第一个元素。</span><br><span class="line"></span><br><span class="line">**写法示例**：</span><br><span class="line"></span><br><span class="line">``` java</span><br><span class="line">Book books8 = books.stream()</span><br><span class="line">                .filter(b -&gt; b.getPublishYear() &lt; <span class="number">2000</span>)</span><br><span class="line">                .findFirst().get();</span><br></pre></td></tr></table></figure>
+<h4 id="3-2-4-返回元素个数"><a href="#3-2-4-返回元素个数" class="headerlink" title="3.2.4 返回元素个数"></a>3.2.4 返回元素个数</h4><p><strong>源码定义</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">long</span> <span class="title">count</span><span class="params">()</span></span>;</span><br></pre></td></tr></table></figure>
+<p>返回流对象中元素的个数。</p>
+<p><strong>写法示例</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">long</span> books9 = books.stream()</span><br><span class="line">                .filter(b -&gt; b.getPublishYear() &lt; <span class="number">2000</span>)</span><br><span class="line">                .count();</span><br></pre></td></tr></table></figure>
+<h2 id="4-小结"><a href="#4-小结" class="headerlink" title="4. 小结"></a>4. 小结</h2><p>　　其实这篇文章就只是简单的介绍了一下 Java8 中流的内容，本来想把 Java8 中定义的关于流的 API都讲一下的，但是发现这个量有点大，所以就挑了一些比较有代表性的<strong>中间操作</strong>和<strong>终端操作</strong>讲一下，更多的内容还是得靠自己发掘了。</p>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/流/" rel="tag"># 流</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2016/09/25/从Lambda到方法引用/" rel="prev" title="从Lambda到方法引用">
+      <i class="fa fa-chevron-left"></i> 从Lambda到方法引用
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2016/11/07/MySQL 主从环境配置/" rel="next" title="MySQL 主从环境配置">
+      MySQL 主从环境配置 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-什么是流"><span class="nav-number">1.</span> <span class="nav-text">1. 什么是流</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-流之初体验"><span class="nav-number">2.</span> <span class="nav-text">2. 流之初体验</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-流之再体验"><span class="nav-number">3.</span> <span class="nav-text">3. 流之再体验</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-中间操作"><span class="nav-number">3.1.</span> <span class="nav-text">3.1 中间操作</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-1-筛选操作"><span class="nav-number">3.1.1.</span> <span class="nav-text">3.1.1 筛选操作</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-2-去重操作"><span class="nav-number">3.1.2.</span> <span class="nav-text">3.1.2 去重操作</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-3-限制返回个数"><span class="nav-number">3.1.3.</span> <span class="nav-text">3.1.3 限制返回个数</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-4-跳过操作"><span class="nav-number">3.1.4.</span> <span class="nav-text">3.1.4 跳过操作</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-5-映射操作"><span class="nav-number">3.1.5.</span> <span class="nav-text">3.1.5 映射操作</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-1-6-排序操作"><span class="nav-number">3.1.6.</span> <span class="nav-text">3.1.6 排序操作</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-终端操作"><span class="nav-number">3.2.</span> <span class="nav-text">3.2 终端操作</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-返回集合"><span class="nav-number">3.2.1.</span> <span class="nav-text">3.2.1 返回集合</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-查找是否至少存在一个"><span class="nav-number">3.2.2.</span> <span class="nav-text">3.2.2 查找是否至少存在一个</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-3-查找第一个元素"><span class="nav-number">3.2.3.</span> <span class="nav-text">3.2.3 查找第一个元素</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-4-返回元素个数"><span class="nav-number">3.2.4.</span> <span class="nav-text">3.2.4 返回元素个数</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-小结"><span class="nav-number">4.</span> <span class="nav-text">4. 小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="1. 前言　　之前讲了如何安装 Tmux，这篇文章讲讲如何使用 Tmux。其实工具的使用都是很简单，最终是看你如何使用这个工具，才能发挥出工具最大的作用。 2. 基础知识　　在讲如何使用 Tmux 之前，我们需要先熟悉它的几个概念。  会话（Session） 窗口（Window） 面板（Pane）  会话：会话的概念很好理解。我们一台服务器正在那边运行着，我们拿终端工具如：XShell、Secur">
+<meta name="keywords" content="Linux,工具">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux基础之Tmux使用姿势">
+<meta property="og:url" content="http://yoursite.com/2016/12/31/Linux基础之Tmux使用姿势/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="1. 前言　　之前讲了如何安装 Tmux，这篇文章讲讲如何使用 Tmux。其实工具的使用都是很简单，最终是看你如何使用这个工具，才能发挥出工具最大的作用。 2. 基础知识　　在讲如何使用 Tmux 之前，我们需要先熟悉它的几个概念。  会话（Session） 窗口（Window） 面板（Pane）  会话：会话的概念很好理解。我们一台服务器正在那边运行着，我们拿终端工具如：XShell、Secur">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/tmux-1.png">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/tmux-2.png">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/tmux-3.png">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/tmux-4.png">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/tmux-5.png">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/tmux-6.png">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux基础之Tmux使用姿势">
+<meta name="twitter:description" content="1. 前言　　之前讲了如何安装 Tmux，这篇文章讲讲如何使用 Tmux。其实工具的使用都是很简单，最终是看你如何使用这个工具，才能发挥出工具最大的作用。 2. 基础知识　　在讲如何使用 Tmux 之前，我们需要先熟悉它的几个概念。  会话（Session） 窗口（Window） 面板（Pane）  会话：会话的概念很好理解。我们一台服务器正在那边运行着，我们拿终端工具如：XShell、Secur">
+<meta name="twitter:image" content="http://oc4wmeyj8.bkt.clouddn.com/tmux-1.png">
+
+<link rel="canonical" href="http://yoursite.com/2016/12/31/Linux基础之Tmux使用姿势/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>Linux基础之Tmux使用姿势 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/12/31/Linux基础之Tmux使用姿势/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux基础之Tmux使用姿势
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2016-12-31 14:15:00" itemprop="dateCreated datePublished" datetime="2016-12-31T14:15:00+00:00">2016-12-31</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="1-前言"><a href="#1-前言" class="headerlink" title="1. 前言"></a>1. 前言</h2><p>　　之前讲了如何安装 Tmux，这篇文章讲讲如何使用 Tmux。其实工具的使用都是很简单，最终是看你如何使用这个工具，才能发挥出工具最大的作用。</p>
+<h2 id="2-基础知识"><a href="#2-基础知识" class="headerlink" title="2. 基础知识"></a>2. 基础知识</h2><p>　　在讲如何使用 Tmux 之前，我们需要先熟悉它的几个概念。</p>
+<ul>
+<li>会话（Session）</li>
+<li>窗口（Window）</li>
+<li>面板（Pane）</li>
+</ul>
+<p><strong>会话：</strong>会话的概念很好理解。我们一台服务器正在那边运行着，我们拿终端工具如：XShell、SecureCRT 等去连接的时候，每新建一个连接，就是一个新的会话。使用 Tmux 新建会话的时候，也是一样，一个新的会话就表示一个新的连接。</p>
+<p><strong>窗口：</strong>窗口的概念，可以类比于 Windows 里面的窗口的概念。之前我们连服务器的时候，终端工具每次连接只有一个界面，当我们需要同时操作多个过程的时候，我们就需要建立新的连接。这样很不方便。Tmux 里面的窗口的概念，就可以让我们在一个会话里有多个界面，就不需要去建立的一个会话。</p>
+<p><strong>面板：</strong>面板的概念的话，是用于对界面的布局而言的。就是将一个界面划分为多个不同的区域，每个区域我们称之为一个面板。</p>
+<p>　　简单来说就是，一个会话里面可以有多个窗口，一个窗口里面可以有多个面板。</p>
+<h2 id="3-命令行使用方式"><a href="#3-命令行使用方式" class="headerlink" title="3. 命令行使用方式"></a>3. 命令行使用方式</h2><p>　　Tmux 可以有两种使用方式，一种是命令行的方式，一种是快捷键的方式。前者的话不需要怎么记忆，后者的话效率更高。我觉得还是命令行入门，先熟悉这个工具的作用，之后将常用的几个功能的快捷键记下来，多使用，多熟练。</p>
+<h3 id="3-1-会话操作"><a href="#3-1-会话操作" class="headerlink" title="3.1 会话操作"></a>3.1 会话操作</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ tmux <span class="keyword">new</span> -s [session_name]  <span class="comment">//  创建一个会话</span></span><br></pre></td></tr></table></figure>
+<p>创建完会话之后，会自动进入这个会话之内。并且会话默认帮你创建好一个窗口。<br><img src="http://oc4wmeyj8.bkt.clouddn.com/tmux-1.png" alt></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ tmux <span class="built_in">list</span>-sessions <span class="comment">// 显示所有会话，也可以简写成 tmux ls</span></span><br></pre></td></tr></table></figure>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/tmux-2.png" alt></p>
+<p> 当前的话，我一共有一个会话，并且会话的名称为： session1 。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ tmux detach <span class="comment">// 退出当前的会话，返回 shell 界面</span></span><br><span class="line">$ tmux kill-session -t [session_name ] <span class="comment">// 结束一个会话</span></span><br><span class="line">$ tmux attach -t [session_name] <span class="comment">// 回到某一个会话当中</span></span><br><span class="line">$ tmux <span class="keyword">switch</span> -t [session_name] <span class="comment">// 切换到某一会话当中</span></span><br><span class="line">$ tmux kill-server <span class="comment">// 关闭所有会话</span></span><br></pre></td></tr></table></figure>
+<h3 id="3-2-窗口操作"><a href="#3-2-窗口操作" class="headerlink" title="3.2 窗口操作"></a>3.2 窗口操作</h3><p>　　讲完会话的操作，我们来讲讲窗口的操作。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ tmux <span class="keyword">new</span>-window [-n window_name] <span class="comment">// 创建一个新的窗口，可以指定新的窗口的名字也可以不指定</span></span><br></pre></td></tr></table></figure></p>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/tmux-3.png" alt></p>
+<p> 这边，我新建了一个名为 window1 的窗口，并且 Tmux 自动帮我切换到了这个窗口，<code>*</code> 标记当前正在使用的窗口，一个窗口默认包含一个面板。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ tmux rename-window [new_window_name] <span class="comment">// 重命名当前窗口的名字</span></span><br></pre></td></tr></table></figure>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/tmux-4.png" alt></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ tmux <span class="built_in">list</span>-windows <span class="comment">// 显示当前会话中所有的窗口</span></span><br></pre></td></tr></table></figure>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/tmux-5.png" alt></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ tmux kill-window -t [window_name | window_index] <span class="comment">// 关闭一个窗口</span></span><br><span class="line">$ tmux select-window -t [window_index] <span class="comment">// 切换窗口</span></span><br></pre></td></tr></table></figure>
+<h3 id="3-3-面板操作"><a href="#3-3-面板操作" class="headerlink" title="3.3 面板操作"></a>3.3 面板操作</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ tmux split-window <span class="comment">//将一个面板垂直切成两个面板</span></span><br><span class="line">$ tmux split-window -h <span class="comment">// 将一个面板水平切成两个面板</span></span><br></pre></td></tr></table></figure>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/tmux-6.png" alt></p>
+<p> 可以看到图片中的话，我将一个窗口切成了三部分区域，每一个区域都是一个面板。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ tmux swap-pane -[UDRL] <span class="comment">// 选择 [ 上下左右 ] 的面板交换</span></span><br><span class="line">$ tmux select-pane -[UDRL] <span class="comment">// 选择 [ 上下左右 ] 的面板进行切换</span></span><br></pre></td></tr></table></figure>
+<p>　　以上的话就是同过命令行的方式使用 Tmux，使用命令行的方式，可以简单了解一下 Tmux 这个工具提供的一些功能。接下来就是进阶的，使用快捷键的方式操作 Tmux。</p>
+<h2 id="4-快捷键使用方式"><a href="#4-快捷键使用方式" class="headerlink" title="4. 快捷键使用方式"></a>4. 快捷键使用方式</h2><p>　　Tmux 快捷键的话需要先按下前缀键，之后再按快捷键才会有效果。 Tmux 默认的前缀键是 <code>Ctrl + b</code>。我就只简单罗列一下快捷键，实际效果的话，使用一下就知道了，上面使用命令行能达到的功能，都能找到相应的快捷键。</p>
+<p>　　Tmux 还有一个配置文件，可以根据自己的习惯将快捷键改成自己喜欢的键。</p>
+<h3 id="4-1-基本操作"><a href="#4-1-基本操作" class="headerlink" title="4.1 基本操作"></a>4.1 基本操作</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">? 列出所有快捷键；按q返回</span><br><span class="line">d 脱离当前会话,可暂时返回Shell界面</span><br><span class="line">s 选择并切换会话；在同时开启了多个会话时使用</span><br><span class="line">D 选择要脱离的会话；在同时开启了多个会话时使用</span><br><span class="line">: 进入命令行模式；此时可输入支持的命令，例如 kill-server 关闭所有tmux会话</span><br><span class="line">[ 复制模式，光标移动到复制内容位置，空格键开始，方向键选择复制，回车确认，q/Esc退出</span><br><span class="line">] 进入粘贴模式，粘贴之前复制的内容，按q/Esc退出</span><br><span class="line">~ 列出提示信息缓存；其中包含了之前tmux返回的各种提示信息</span><br><span class="line">t 显示当前的时间</span><br><span class="line">ctrl + z 挂起当前会话</span><br></pre></td></tr></table></figure>
+<h3 id="4-2-窗口操作"><a href="#4-2-窗口操作" class="headerlink" title="4.2 窗口操作"></a>4.2 窗口操作</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">c 创建新窗口</span><br><span class="line">&amp; 关闭当前窗口</span><br><span class="line">[<span class="number">0</span><span class="number">-9</span>] 数字键切换到指定窗口</span><br><span class="line">p 切换至上一窗口</span><br><span class="line">n 切换至下一窗口</span><br><span class="line">l 前后窗口间互相切换</span><br><span class="line">w 通过窗口列表切换窗口</span><br><span class="line">, 重命名当前窗口，便于识别</span><br><span class="line">. 修改当前窗口编号，相当于重新排序</span><br><span class="line">f 在所有窗口中查找关键词，便于窗口多了切换</span><br></pre></td></tr></table></figure>
+<h3 id="4-3-面板操作"><a href="#4-3-面板操作" class="headerlink" title="4.3 面板操作"></a>4.3 面板操作</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">" 将当前面板上下分屏</span></span><br><span class="line"><span class="string">% 将当前面板左右分屏</span></span><br><span class="line"><span class="string">x 关闭当前分屏</span></span><br><span class="line"><span class="string">! 将当前面板置于新窗口,即新建一个窗口,其中仅包含当前面板</span></span><br><span class="line"><span class="string">ctrl+方向键 以1个单元格为单位移动边缘以调整当前面板大小</span></span><br><span class="line"><span class="string">alt+方向键 以5个单元格为单位移动边缘以调整当前面板大小</span></span><br><span class="line"><span class="string">q 显示面板编号</span></span><br><span class="line"><span class="string">o 选择当前窗口中下一个面板</span></span><br><span class="line"><span class="string">方向键 移动光标选择对应面板</span></span><br><span class="line"><span class="string">&#123; 向前置换当前面板</span></span><br><span class="line"><span class="string">&#125; 向后置换当前面板</span></span><br><span class="line"><span class="string">alt+o 逆时针旋转当前窗口的面板</span></span><br><span class="line"><span class="string">ctrl+o 顺时针旋转当前窗口的面板</span></span><br><span class="line"><span class="string">z 最大化当前所在面板</span></span><br><span class="line"><span class="string">page up 向上滚动屏幕，q 退出</span></span><br><span class="line"><span class="string">page down 向下滚动屏幕，q 退出</span></span><br></pre></td></tr></table></figure>
+<h2 id="5-总结"><a href="#5-总结" class="headerlink" title="5. 总结"></a>5. 总结</h2><p>　　说到底 Tmux 也就是这么一个工具，功能也就这么多，但是将 Tmux 和 Vim 结合起来的时候，效果就不一样了，在命令行下开发，整个逼格一下就上去了。装逼使人进步。</p>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/工具/" rel="tag"># 工具</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2016/12/28/Linux基础之Tmux安装/" rel="prev" title="Linux基础之Tmux安装">
+      <i class="fa fa-chevron-left"></i> Linux基础之Tmux安装
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/01/14/2016总结/" rel="next" title="2016总结">
+      2016总结 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-前言"><span class="nav-number">1.</span> <span class="nav-text">1. 前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-基础知识"><span class="nav-number">2.</span> <span class="nav-text">2. 基础知识</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-命令行使用方式"><span class="nav-number">3.</span> <span class="nav-text">3. 命令行使用方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-会话操作"><span class="nav-number">3.1.</span> <span class="nav-text">3.1 会话操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-窗口操作"><span class="nav-number">3.2.</span> <span class="nav-text">3.2 窗口操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-面板操作"><span class="nav-number">3.3.</span> <span class="nav-text">3.3 面板操作</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-快捷键使用方式"><span class="nav-number">4.</span> <span class="nav-text">4. 快捷键使用方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-基本操作"><span class="nav-number">4.1.</span> <span class="nav-text">4.1 基本操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-窗口操作"><span class="nav-number">4.2.</span> <span class="nav-text">4.2 窗口操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-面板操作"><span class="nav-number">4.3.</span> <span class="nav-text">4.3 面板操作</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-总结"><span class="nav-number">5.</span> <span class="nav-text">5. 总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

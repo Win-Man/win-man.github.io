@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="MySQL query rewrite介绍MySQL 从 5.7.6 版本开始支持 SQL 改写的功能，对于符合条件的 SQL 可以进行对应的修改。在 8.0.12 之前的版本只支持 SELECT 语句的改写，8.0.12 版本开始支持 SELECT/INSERT/REPLACE/UPDATE/DELETE 语句的改写。 Query Rewrite Plugin 安装安装 Query Rewrit">
+<meta name="keywords" content="MySQL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL query rewrite">
+<meta property="og:url" content="http://yoursite.com/2021/02/23/053-mysql-query-rewrite/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="MySQL query rewrite介绍MySQL 从 5.7.6 版本开始支持 SQL 改写的功能，对于符合条件的 SQL 可以进行对应的修改。在 8.0.12 之前的版本只支持 SELECT 语句的改写，8.0.12 版本开始支持 SELECT/INSERT/REPLACE/UPDATE/DELETE 语句的改写。 Query Rewrite Plugin 安装安装 Query Rewrit">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL query rewrite">
+<meta name="twitter:description" content="MySQL query rewrite介绍MySQL 从 5.7.6 版本开始支持 SQL 改写的功能，对于符合条件的 SQL 可以进行对应的修改。在 8.0.12 之前的版本只支持 SELECT 语句的改写，8.0.12 版本开始支持 SELECT/INSERT/REPLACE/UPDATE/DELETE 语句的改写。 Query Rewrite Plugin 安装安装 Query Rewrit">
+
+<link rel="canonical" href="http://yoursite.com/2021/02/23/053-mysql-query-rewrite/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL query rewrite | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/02/23/053-mysql-query-rewrite/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL query rewrite
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-02-23 10:52:34" itemprop="dateCreated datePublished" datetime="2021-02-23T10:52:34+00:00">2021-02-23</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="MySQL-query-rewrite"><a href="#MySQL-query-rewrite" class="headerlink" title="MySQL query rewrite"></a>MySQL query rewrite</h1><h2 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h2><p>MySQL 从 5.7.6 版本开始支持 SQL 改写的功能，对于符合条件的 SQL 可以进行对应的修改。在 8.0.12 之前的版本只支持 SELECT 语句的改写，8.0.12 版本开始支持 SELECT/INSERT/REPLACE/UPDATE/DELETE 语句的改写。</p>
+<h2 id="Query-Rewrite-Plugin-安装"><a href="#Query-Rewrite-Plugin-安装" class="headerlink" title="Query Rewrite Plugin 安装"></a>Query Rewrite Plugin 安装</h2><p>安装 Query Rewrite Plugin 直接通过运行 install_rewriter.sql 中的 SQL 来进行安装即可，如果需要卸载的话，执行 uninstall_rewriter.sql 就可以，这两个 sql 文本文件存放在安装目录的 share 目录下。</p>
+<ul>
+<li>执行 install_rewriter.sql 安装插件</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># mysql -uroot -p -h127.0.0.1 &lt; install_rewriter.sql</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li>通过变量确认插件开启</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">root@127.0.0.1 : (none) 03:53:58&gt; SHOW GLOBAL VARIABLES LIKE 'rewriter_enabled';</span><br><span class="line">+<span class="comment">------------------+-------+</span></span><br><span class="line">| Variable_name    | Value |</span><br><span class="line">+<span class="comment">------------------+-------+</span></span><br><span class="line">| rewriter_enabled | ON    |</span><br><span class="line">+<span class="comment">------------------+-------+</span></span><br><span class="line">1 row in <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>如果需要每次重启 rewriter_enabled 参数都是开启的话，可以在配置文件中配置对应参数</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[mysqld]</span><br><span class="line">rewriter_enabled=ON</span><br></pre></td></tr></table></figure>
+<ul>
+<li>动态修改参数可以通过以下方式开启或者关闭插件，在刚安装完插件的时候，默认是开启的</li>
+</ul>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> rewriter_enabled = <span class="keyword">ON</span>;</span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> rewriter_enabled = <span class="keyword">OFF</span>;</span><br></pre></td></tr></table></figure>
+<p>安装完 Query Rewrite Plugin 插件之后自从创建一个 query_rewrite 的 database，该 database 下有一张 rewrite_rules 表，用于记录对应的改写规则。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">root@127.0.0.1 : query_rewrite 06:48:28&gt; show create table query_rewrite.rewrite_rules\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">       Table: rewrite_rules</span><br><span class="line"><span class="keyword">Create</span> <span class="keyword">Table</span>: <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`rewrite_rules`</span> (</span><br><span class="line">  <span class="string">`id`</span> <span class="built_in">int</span> <span class="keyword">NOT</span> <span class="literal">NULL</span> AUTO_INCREMENT,</span><br><span class="line">  <span class="string">`pattern`</span> <span class="built_in">varchar</span>(<span class="number">5000</span>) <span class="built_in">CHARACTER</span> <span class="keyword">SET</span> utf8mb4 <span class="keyword">COLLATE</span> utf8mb4_bin <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`pattern_database`</span> <span class="built_in">varchar</span>(<span class="number">20</span>) <span class="built_in">CHARACTER</span> <span class="keyword">SET</span> utf8mb4 <span class="keyword">COLLATE</span> utf8mb4_bin <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`replacement`</span> <span class="built_in">varchar</span>(<span class="number">5000</span>) <span class="built_in">CHARACTER</span> <span class="keyword">SET</span> utf8mb4 <span class="keyword">COLLATE</span> utf8mb4_bin <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`enabled`</span> enum(<span class="string">'YES'</span>,<span class="string">'NO'</span>) <span class="built_in">CHARACTER</span> <span class="keyword">SET</span> utf8mb4 <span class="keyword">COLLATE</span> utf8mb4_bin <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">'YES'</span>,</span><br><span class="line">  <span class="string">`message`</span> <span class="built_in">varchar</span>(<span class="number">1000</span>) <span class="built_in">CHARACTER</span> <span class="keyword">SET</span> utf8mb4 <span class="keyword">COLLATE</span> utf8mb4_bin <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`pattern_digest`</span> <span class="built_in">varchar</span>(<span class="number">64</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`normalized_pattern`</span> <span class="built_in">varchar</span>(<span class="number">100</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</span><br><span class="line">  PRIMARY <span class="keyword">KEY</span> (<span class="string">`id`</span>)</span><br><span class="line">) <span class="keyword">ENGINE</span>=<span class="keyword">InnoDB</span> AUTO_INCREMENT=<span class="number">2</span> <span class="keyword">DEFAULT</span> <span class="keyword">CHARSET</span>=utf8mb4 <span class="keyword">COLLATE</span>=utf8mb4_0900_ai_ci</span><br><span class="line"><span class="number">1</span> <span class="keyword">row</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure>
+<h2 id="Query-Rewrite-Plugin-使用"><a href="#Query-Rewrite-Plugin-使用" class="headerlink" title="Query Rewrite Plugin 使用"></a>Query Rewrite Plugin 使用</h2><p>使用语句改写的话，只需要将改写规则写入到 rewrite_rules 表中并且通过 CALL query_rewrite.flush_rewrite_rules() 加载生效即可。</p>
+<p>比如将 SELECT ? 语句改写为 SELECT ? + 1 </p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">root@127.0.0.1 : query_rewrite 07:32:41&gt; INSERT INTO query_rewrite.rewrite_rules (pattern, replacement)</span><br><span class="line">    -&gt; VALUES('SELECT ?', 'SELECT ? + 1');</span><br><span class="line">Query OK, 1 row affected (0.01 sec)</span><br><span class="line"></span><br><span class="line">root@127.0.0.1 : query_rewrite 07:32:51&gt; CALL query_rewrite.flush_rewrite_rules();</span><br><span class="line">Query OK, 1 row affected (0.01 sec)</span><br><span class="line"></span><br><span class="line">root@127.0.0.1 : query_rewrite 07:33:01&gt; select 2;</span><br><span class="line">+<span class="comment">-------+</span></span><br><span class="line">| 2 + 1 |</span><br><span class="line">+<span class="comment">-------+</span></span><br><span class="line">|     3 |</span><br><span class="line">+<span class="comment">-------+</span></span><br><span class="line">1 row in <span class="keyword">set</span>, <span class="number">1</span> <span class="keyword">warning</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">Note (Code <span class="number">1105</span>): <span class="keyword">Query</span> <span class="string">'select 2'</span> rewritten <span class="keyword">to</span> <span class="string">'SELECT 2 + 1'</span> <span class="keyword">by</span> a <span class="keyword">query</span> rewrite <span class="keyword">plugin</span></span><br></pre></td></tr></table></figure>
+<p>SQL 改写的话没有语句类型的限制，改写前的语句类型可以跟改写后的语句类型不一致，比如可以将 SELECT 语句改写为 INSERT 语句。如果调用 CALL query_rewrite.flush_rewrite_rules(); 使改写规则生效的时候报错了，可以查看 rewrite_rules 表中对应的 message 字段，会有具体的错误信息提示。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">root@127.0.0.1 : query_rewrite 07:34:51&gt; use gangshen;</span><br><span class="line">Database changed</span><br><span class="line">root@127.0.0.1 : gangshen 07:37:13&gt; create table t(id int primary key,name varchar(20));</span><br><span class="line">Query OK, 0 rows affected (0.03 sec)</span><br><span class="line"></span><br><span class="line">root@127.0.0.1 : gangshen 07:37:36&gt; INSERT INTO query_rewrite.rewrite_rules (pattern, replacement) VALUES('SELECT * from t', 'insert into t values(3,"aa")');</span><br><span class="line">Query OK, 1 row affected (0.01 sec)</span><br><span class="line"></span><br><span class="line">root@127.0.0.1 : gangshen 07:39:12&gt; CALL query_rewrite.flush_rewrite_rules();</span><br><span class="line">ERROR 1644 (45000): Loading of some rule(s) failed.</span><br><span class="line">root@127.0.0.1 : gangshen 07:39:26&gt; select * from query_rewrite.rewrite_rules;</span><br><span class="line">+<span class="comment">----+-----------------+------------------+------------------------------+---------+--------------------------------------------------+------------------------------------------------------------------+--------------------+</span></span><br><span class="line">| id | pattern         | pattern_database | replacement                  | enabled | message                                          | pattern_digest                                                   | normalized_pattern |</span><br><span class="line">+<span class="comment">----+-----------------+------------------+------------------------------+---------+--------------------------------------------------+------------------------------------------------------------------+--------------------+</span></span><br><span class="line">|  2 | <span class="keyword">SELECT</span> ?        | <span class="literal">NULL</span>             | <span class="keyword">SELECT</span> ? + <span class="number">1</span>                 | YES     | <span class="literal">NULL</span>                                             | d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae | <span class="keyword">select</span> ?           |</span><br><span class="line">|  <span class="number">3</span> | <span class="keyword">SELECT</span> * <span class="keyword">from</span> t | <span class="literal">NULL</span>             | <span class="keyword">insert</span> <span class="keyword">into</span> t <span class="keyword">values</span>(<span class="number">3</span>,<span class="string">"aa"</span>) | YES     | <span class="keyword">Parse</span> <span class="keyword">error</span> <span class="keyword">in</span> pattern: &gt;&gt;<span class="keyword">No</span> <span class="keyword">database</span> selected&lt;&lt; | <span class="literal">NULL</span>                                                             | <span class="literal">NULL</span>               |</span><br><span class="line">+<span class="comment">----+-----------------+------------------+------------------------------+---------+--------------------------------------------------+------------------------------------------------------------------+--------------------+</span></span><br><span class="line"><span class="number">2</span> <span class="keyword">rows</span> <span class="keyword">in</span> <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">root@<span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span> : gangshen <span class="number">07</span>:<span class="number">39</span>:<span class="number">36</span>&gt; <span class="keyword">update</span> query_rewrite.rewrite_rules <span class="keyword">set</span> pattern=<span class="string">'SELECT * from gangshen.t'</span> <span class="keyword">where</span> <span class="keyword">id</span> = <span class="number">3</span>;</span><br><span class="line">Query OK, 1 row affected (0.01 sec)</span><br><span class="line">Rows matched: 1  Changed: 1  Warnings: 0</span><br><span class="line"></span><br><span class="line">root@127.0.0.1 : gangshen 07:40:18&gt; update query_rewrite.rewrite_rules set replacement='insert into gangshen.t values(3,"aa")' where id = 3;</span><br><span class="line">Query OK, 1 row affected (0.00 sec)</span><br><span class="line">Rows matched: 1  Changed: 1  Warnings: 0</span><br><span class="line"></span><br><span class="line">root@127.0.0.1 : gangshen 07:40:50&gt; CALL query_rewrite.flush_rewrite_rules();</span><br><span class="line">Query OK, 1 row affected (0.01 sec)</span><br><span class="line"></span><br><span class="line">root@127.0.0.1 : gangshen 07:40:54&gt; select * from gangshen.t limit 5;</span><br><span class="line">Empty <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">root@<span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span> : gangshen <span class="number">07</span>:<span class="number">41</span>:<span class="number">55</span>&gt; <span class="keyword">select</span> * <span class="keyword">from</span> gangshen.t;</span><br><span class="line">Query OK, 1 row affected, 1 warning (0.00 sec)</span><br><span class="line"></span><br><span class="line">Note (Code 1105): Query '<span class="keyword">select</span> * <span class="keyword">from</span> gangshen.t<span class="string">' rewritten to '</span><span class="keyword">insert</span> <span class="keyword">into</span> gangshen.t <span class="keyword">values</span>(<span class="number">3</span>,<span class="string">"aa"</span>)<span class="string">' by a query rewrite plugin</span></span><br><span class="line"><span class="string">root@127.0.0.1 : gangshen 07:42:00&gt; select * from gangshen.t limit 5;</span></span><br><span class="line"><span class="string">+----+------+</span></span><br><span class="line"><span class="string">| id | name |</span></span><br><span class="line"><span class="string">+----+------+</span></span><br><span class="line"><span class="string">|  3 | aa   |</span></span><br><span class="line"><span class="string">+----+------+</span></span><br><span class="line"><span class="string">1 row in set (0.00 sec)</span></span><br></pre></td></tr></table></figure>
+<h2 id="Query-Rewrite-Plugin-的限制"><a href="#Query-Rewrite-Plugin-的限制" class="headerlink" title="Query Rewrite Plugin 的限制"></a>Query Rewrite Plugin 的限制</h2><ul>
+<li>8.0.12 之前的版本只支持 SELECT 语句的改写，8.0.12 版本开始支持 SELECT/INSERT/REPLACE/UPDATE/DELETE 语句的改写</li>
+<li>只支持单独语句以及 prepare 语句的改写，视图或者存储过程相关的语句无法改写</li>
+<li>改写没有语句类型的限制，比如 SELECT 语句可以改写为 INSERT 语句</li>
+</ul>
+<h2 id="Query-Rewrite-Plugin-场景及总结"><a href="#Query-Rewrite-Plugin-场景及总结" class="headerlink" title="Query Rewrite Plugin 场景及总结"></a>Query Rewrite Plugin 场景及总结</h2><p>个人能想到的 SQL 改写可以使用到的场景：</p>
+<ol>
+<li>对于危险 SQL 比如 delete from table_name 这种，可以做到拦截，避免不小心将表数据完全删除</li>
+<li>业务上线后，发现某条 SQL 对数据库造成很大压力影响，可以将该 SQL 改写为 SELECT 1 这种语句，临时降低对数据库的负载</li>
+<li>数据库升级之后，SQL 执行计划不正确导致数据库负载过高，在不修改业务代码的情况下，可以通过 SQL 改写的方式让 SQL 走更优的执行计划</li>
+<li>历史库场景，过滤 DELETE 操作</li>
+<li>SQL 改写可以理解为简单的触发器功能，可以参考 pt-osc 的方式支持在线字段变更</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/02/10/050-2020-year-end-summary/" rel="prev" title="2020 年终总结">
+      <i class="fa fa-chevron-left"></i> 2020 年终总结
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/03/27/054-simple-database-0/" rel="next" title="Let's Build a Simple Database - How Does a Database Work">
+      Let's Build a Simple Database - How Does a Database Work <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#MySQL-query-rewrite"><span class="nav-number">1.</span> <span class="nav-text">MySQL query rewrite</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#介绍"><span class="nav-number">1.1.</span> <span class="nav-text">介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Query-Rewrite-Plugin-安装"><span class="nav-number">1.2.</span> <span class="nav-text">Query Rewrite Plugin 安装</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Query-Rewrite-Plugin-使用"><span class="nav-number">1.3.</span> <span class="nav-text">Query Rewrite Plugin 使用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Query-Rewrite-Plugin-的限制"><span class="nav-number">1.4.</span> <span class="nav-text">Query Rewrite Plugin 的限制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Query-Rewrite-Plugin-场景及总结"><span class="nav-number">1.5.</span> <span class="nav-text">Query Rewrite Plugin 场景及总结</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

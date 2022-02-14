@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="使用 TiDB Binlog 同步数据到 MySQL 步骤本文档适用于 TiDB 集群已经搭建完成并且已有部分数据在集群中，需要搭建 TiDB Binlog 将 TiDB 中数据同步到 MySQL 的情况 。 说明：  $ 符号表示命令需要在服务器命令行中执行 ${xxx} 表示需要替换成实际对应的内容  步骤一、扩容 pump 节点 准备扩容 pump 节点的拓扑文件  12345$ cat s">
+<meta name="keywords" content="TiDB,TiDB Binlog">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用 TiDB Binlog 同步数据到 MySQL 步骤">
+<meta property="og:url" content="http://yoursite.com/2022/02/14/061-tidb-binlog-mysql/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="使用 TiDB Binlog 同步数据到 MySQL 步骤本文档适用于 TiDB 集群已经搭建完成并且已有部分数据在集群中，需要搭建 TiDB Binlog 将 TiDB 中数据同步到 MySQL 的情况 。 说明：  $ 符号表示命令需要在服务器命令行中执行 ${xxx} 表示需要替换成实际对应的内容  步骤一、扩容 pump 节点 准备扩容 pump 节点的拓扑文件  12345$ cat s">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="使用 TiDB Binlog 同步数据到 MySQL 步骤">
+<meta name="twitter:description" content="使用 TiDB Binlog 同步数据到 MySQL 步骤本文档适用于 TiDB 集群已经搭建完成并且已有部分数据在集群中，需要搭建 TiDB Binlog 将 TiDB 中数据同步到 MySQL 的情况 。 说明：  $ 符号表示命令需要在服务器命令行中执行 ${xxx} 表示需要替换成实际对应的内容  步骤一、扩容 pump 节点 准备扩容 pump 节点的拓扑文件  12345$ cat s">
+
+<link rel="canonical" href="http://yoursite.com/2022/02/14/061-tidb-binlog-mysql/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>使用 TiDB Binlog 同步数据到 MySQL 步骤 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2022/02/14/061-tidb-binlog-mysql/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          使用 TiDB Binlog 同步数据到 MySQL 步骤
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2022-02-14 19:39:46 / Modified: 15:12:10" itemprop="dateCreated datePublished" datetime="2022-02-14T19:39:46+00:00">2022-02-14</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/TiDB/" itemprop="url" rel="index"><span itemprop="name">TiDB</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="使用-TiDB-Binlog-同步数据到-MySQL-步骤"><a href="#使用-TiDB-Binlog-同步数据到-MySQL-步骤" class="headerlink" title="使用 TiDB Binlog 同步数据到 MySQL 步骤"></a>使用 TiDB Binlog 同步数据到 MySQL 步骤</h1><p>本文档适用于 TiDB 集群已经搭建完成并且已有部分数据在集群中，需要搭建 TiDB Binlog 将 TiDB 中数据同步到 MySQL 的情况 。</p>
+<p><strong>说明：</strong></p>
+<ul>
+<li>$ 符号表示命令需要在服务器命令行中执行</li>
+<li>${xxx} 表示需要替换成实际对应的内容</li>
+</ul>
+<h2 id="步骤一、扩容-pump-节点"><a href="#步骤一、扩容-pump-节点" class="headerlink" title="步骤一、扩容 pump 节点"></a>步骤一、扩容 pump 节点</h2><ol>
+<li>准备扩容 pump 节点的拓扑文件</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> cat scale-pump.yaml</span><br><span class="line">pump_servers:</span><br><span class="line">  host: 10.55.12.31</span><br><span class="line">  host: 10.55.12.32</span><br><span class="line">  host: 10.55.12.33</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>执行扩容命令</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> tiup cluster scale-out $&#123;cluster_name&#125; ./scale-pump.yaml -uroot -p</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>修改 TiDB 集群，开启 Binlog </li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> tiup cluster edit-config $&#123;cluster_name&#125;</span><br><span class="line">在 server_config 部分添加对应的配置</span><br><span class="line">server_configs:</span><br><span class="line">  tidb:</span><br><span class="line">    binlog.enable: true</span><br><span class="line">    binlog.ignore-error: true</span><br></pre></td></tr></table></figure>
+<ol start="4">
+<li>滚动重启 tidb-server 节点开始 binlog</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> tiup cluster reload $&#123;cluster_name&#125; -R tidb</span><br></pre></td></tr></table></figure>
+<ol start="5">
+<li>查看集群状态</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> tiup cluster display $&#123;cluster_name&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="步骤二、全量数据迁移"><a href="#步骤二、全量数据迁移" class="headerlink" title="步骤二、全量数据迁移"></a>步骤二、全量数据迁移</h2><ol>
+<li>使用 mydumper 全量初始化导出</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> wget http://download.pingcap.org/tidb-enterprise-tools-latest-linux-amd64.tar.gz</span><br><span class="line"><span class="meta">$</span> tar -xzf tidb-enterprise-tools-latest-linux-amd64.tar.gz &amp;&amp; cd tidb-enterprise-tools-latest-linux-amd64</span><br><span class="line"><span class="meta">$</span> ./bin/mydumper -h $&#123;source ip&#125; -P 4000 -u root -t 16 -F 64 --skip-tz-utc -o ./tmp/all_backup</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>获取 initial_commit_ts</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> cat /tmp/all_backup/metadata</span><br><span class="line">Started dump at: 2019-12-13 15:16:44</span><br><span class="line">SHOW MASTER STATUS:</span><br><span class="line">           Log: tidb-binlog</span><br><span class="line">           Pos: 413196983854432259</span><br><span class="line">           GTID:</span><br><span class="line">Finished dump at: 2019-12-13 15:16:48</span><br></pre></td></tr></table></figure>
+<p>Pos 413196983854432259 即为备份的 tso 时刻点值，后续 Binlog 增量同步时需要从这个时间点开始同步</p>
+<ol start="3">
+<li>备份数据复制到 MySQL 节点并使用 loader 将全备数据导入到目标库中</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> ./bin/loader -h $&#123;target ip&#125; -u root -P 3306 -t 32 -d /tmp/all_backup</span><br></pre></td></tr></table></figure>
+<h2 id="步骤三、扩容-drainer-节点"><a href="#步骤三、扩容-drainer-节点" class="headerlink" title="步骤三、扩容 drainer 节点"></a>步骤三、扩容 drainer 节点</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">1. 准备扩容 drainer 节点的拓扑文件</span><br><span class="line"><span class="meta">$</span> cat scale-drainer.yaml</span><br><span class="line">drainer_servers:</span><br><span class="line">  - host: 10.0.1.12</span><br><span class="line">    # commit_ts 填写 mydumper 备份文件中 metadata 记录的 tso 号信息</span><br><span class="line">    commit_ts: 413196983854432259</span><br><span class="line">    config:</span><br><span class="line">      syncer.db-type: "mysql"</span><br><span class="line">      syncer.to.host: "10.0.1.12"</span><br><span class="line">      syncer.to.user: "root"</span><br><span class="line">      syncer.to.password: ""</span><br><span class="line">      syncer.to.port: 3306</span><br><span class="line">      syncer.relay.log-dir: "/dir/to/save/log"</span><br><span class="line">      syncer.relay.max-file-size: 10485760</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>通过 tiup 执行扩容命令</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> tiup cluster scale-out $&#123;cluster_name&#125; ./scale-drainer.yaml -uroot -p</span><br></pre></td></tr></table></figure>
+<ol start="3">
+<li>查看集群节点状态</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> tiup cluster display $&#123;cluster_name&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="步骤四、检查增量数据同步情况"><a href="#步骤四、检查增量数据同步情况" class="headerlink" title="步骤四、检查增量数据同步情况"></a>步骤四、检查增量数据同步情况</h2><p>在上游 TiDB 执行一些变更操作，在下游 MySQL 中查询验证数据是否正常同步。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/TiDB/" rel="tag"># TiDB</a>
+              <a href="/tags/TiDB-Binlog/" rel="tag"># TiDB Binlog</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/02/08/060-github-action/" rel="prev" title="使用 Github Actions 替换 Travis 自动发布 Hexo 博客">
+      <i class="fa fa-chevron-left"></i> 使用 Github Actions 替换 Travis 自动发布 Hexo 博客
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#使用-TiDB-Binlog-同步数据到-MySQL-步骤"><span class="nav-number">1.</span> <span class="nav-text">使用 TiDB Binlog 同步数据到 MySQL 步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#步骤一、扩容-pump-节点"><span class="nav-number">1.1.</span> <span class="nav-text">步骤一、扩容 pump 节点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#步骤二、全量数据迁移"><span class="nav-number">1.2.</span> <span class="nav-text">步骤二、全量数据迁移</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#步骤三、扩容-drainer-节点"><span class="nav-number">1.3.</span> <span class="nav-text">步骤三、扩容 drainer 节点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#步骤四、检查增量数据同步情况"><span class="nav-number">1.4.</span> <span class="nav-text">步骤四、检查增量数据同步情况</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

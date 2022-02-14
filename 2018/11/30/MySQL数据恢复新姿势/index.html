@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、背景1.1、需求来源 需要给客户将生产环境的数据恢复到测试环境，但是线上环境的xtrabackup全备数据量太大，拷贝下来比较麻烦，并且需要恢复的数据只有整库中的两张表的数据，所以客户只是将全备中的对应表的ibd文件以及frm文件拷贝下来了，要求根据ibd文件以及frm文件进行数据恢复。  1.2、环境介绍 数据库版本：MySQL-5.7.22 数据库要求：innodb_file_per_ta">
+<meta name="keywords" content="MySQL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL数据恢复新姿势">
+<meta property="og:url" content="http://yoursite.com/2018/11/30/MySQL数据恢复新姿势/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="一、背景1.1、需求来源 需要给客户将生产环境的数据恢复到测试环境，但是线上环境的xtrabackup全备数据量太大，拷贝下来比较麻烦，并且需要恢复的数据只有整库中的两张表的数据，所以客户只是将全备中的对应表的ibd文件以及frm文件拷贝下来了，要求根据ibd文件以及frm文件进行数据恢复。  1.2、环境介绍 数据库版本：MySQL-5.7.22 数据库要求：innodb_file_per_ta">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505160614.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505160723.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505160758.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505160924.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505161041.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505161054.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505161116.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505161139.png">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL数据恢复新姿势">
+<meta name="twitter:description" content="一、背景1.1、需求来源 需要给客户将生产环境的数据恢复到测试环境，但是线上环境的xtrabackup全备数据量太大，拷贝下来比较麻烦，并且需要恢复的数据只有整库中的两张表的数据，所以客户只是将全备中的对应表的ibd文件以及frm文件拷贝下来了，要求根据ibd文件以及frm文件进行数据恢复。  1.2、环境介绍 数据库版本：MySQL-5.7.22 数据库要求：innodb_file_per_ta">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505160614.png">
+
+<link rel="canonical" href="http://yoursite.com/2018/11/30/MySQL数据恢复新姿势/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL数据恢复新姿势 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/11/30/MySQL数据恢复新姿势/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL数据恢复新姿势
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2018-11-30 21:12:13" itemprop="dateCreated datePublished" datetime="2018-11-30T21:12:13+00:00">2018-11-30</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="一、背景"><a href="#一、背景" class="headerlink" title="一、背景"></a>一、背景</h2><h3 id="1-1、需求来源"><a href="#1-1、需求来源" class="headerlink" title="1.1、需求来源"></a>1.1、需求来源</h3><blockquote>
+<p>需要给客户将生产环境的数据恢复到测试环境，但是线上环境的xtrabackup全备数据量太大，拷贝下来比较麻烦，并且需要恢复的数据只有整库中的两张表的数据，所以客户只是将全备中的对应表的ibd文件以及frm文件拷贝下来了，要求根据ibd文件以及frm文件进行数据恢复。</p>
+</blockquote>
+<h3 id="1-2、环境介绍"><a href="#1-2、环境介绍" class="headerlink" title="1.2、环境介绍"></a>1.2、环境介绍</h3><ul>
+<li>数据库版本：MySQL-5.7.22</li>
+<li>数据库要求：innodb_file_per_table=1</li>
+</ul>
+<h2 id="二、解决方案步骤"><a href="#二、解决方案步骤" class="headerlink" title="二、解决方案步骤"></a>二、解决方案步骤</h2><h3 id="2-1、准备工作"><a href="#2-1、准备工作" class="headerlink" title="2.1、准备工作"></a>2.1、准备工作</h3><ul>
+<li>准备好需要进行数据恢复的表ibd文件以及frm文件</li>
+<li>安装一个新的MySQL实例<ul>
+<li>innodb_file_per_table</li>
+<li>安装步骤省略</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-2、表结构恢复"><a href="#2-2、表结构恢复" class="headerlink" title="2.2、表结构恢复"></a>2.2、表结构恢复</h3><ul>
+<li>在数据库中创建一张表名与被恢复表表名一致的表，表结构不限制</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505160614.png" alt></p>
+<ul>
+<li>将新建表的ibd文件以及frm文件拷贝到tmp目录下备份</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># cp message_index.* /tmp/</span><br></pre></td></tr></table></figure>
+<ul>
+<li>使用被恢复的frm文件替换新创建的同名表的frm文件</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># cp /data2/message_index.frm ./</span><br><span class="line">cp：是否覆盖&quot;./message_index.frm&quot;？ y</span><br><span class="line"># chown -R mysql:mysql ./*</span><br></pre></td></tr></table></figure>
+<ul>
+<li>在数据库中执行show create table语句<br>注意需要在show create table 查看表结构之前执行flush tables语句，因为如果message_index表之前被打开过，那么表结构会被缓存在内存中，show create table不会报错，也就无法从错误日志中拿到我们需要的信息。</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505160723.png" alt></p>
+<ul>
+<li>查看error.log，获取被恢复表的字段数<br>错误日志中会打印我们需要恢复的表的字段数，这边可以看到我们需要恢复的表中含有6个字段</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505160758.png" alt></p>
+<ul>
+<li>删除message_index表，并重新创建message_index表</li>
+</ul>
+<p>从上面的步骤中我们知道被恢复表中含有6个字段，所以重新创建的message_index表需要含有6个字段，字段名以及字段类型不限制</p>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505160924.png" alt></p>
+<ul>
+<li>再次使用被恢复的frm文件替换新创建的同名表的frm文件</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># cp /data2/message_index.frm ./</span><br><span class="line">cp：是否覆盖&quot;./message_index.frm&quot;？ y</span><br><span class="line"># chown -R mysql:mysql ./*</span><br></pre></td></tr></table></figure>
+<ul>
+<li>在MySQL配置文件中添加innodb_force_recovery=6，并重启数据库</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505161041.png" alt></p>
+<ul>
+<li>通过show create table语句拿到message_index表的表结构</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505161054.png" alt></p>
+<p>至此，我们就拿到了我们需要进行恢复的表的表结构。</p>
+<h3 id="2-3、表数据恢复"><a href="#2-3、表数据恢复" class="headerlink" title="2.3、表数据恢复"></a>2.3、表数据恢复</h3><p>拿到表结构之后，表数据恢复步骤相对表结构恢复步骤而言会简单一些</p>
+<ul>
+<li>将innodb_force_recovery=6从配置文件中去掉、使用/tmp目录下的ibd文件以及frm文件覆盖当前的对应文件、重启数据库</li>
+<li>在数据库中按照获取到的表结构新建一张message_index表</li>
+<li>执行<code>alter table discard tablespace</code>语句</li>
+<li><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; alter table message_index discard tablespace;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505161116.png" alt></p>
+<ul>
+<li><p>将要恢复的表的ibd文件拷贝到当前库下，并更改属主以及属组</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># chown -R mysql:mysql ./*</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>执行alter table import tablespace语句</p>
+</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; alter table message_index import tablespace;</span><br></pre></td></tr></table></figure>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190505161139.png" alt></p>
+<p>可以看到数据已经都恢复回来了。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><ul>
+<li>以上我们通过xtrabackup全备中的ibd文件以及frm文件恢复了数据，这样也就代表着xtrabackup就算备份失败，只要有部分ibd文件以及frm文件保证完好，MySQL也是可以进行数据恢复的，在极端情况下也能尽可能的减少损失。但是由于xtrabackup是通过记录redo日志的方式来保存备份过程中产生的增量数据，这一部分增量数据目前还没有办法恢复。</li>
+<li>导入表空间的方式，也给MySQL大数据量迁移方案提供了一种思路：直接拷贝ibd文件的方式</li>
+</ul>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/10/30/MySQL5.7中的sql_mode默认值/" rel="prev" title="MySQL5.7中的sql_mode默认值">
+      <i class="fa fa-chevron-left"></i> MySQL5.7中的sql_mode默认值
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/02/04/2018总结/" rel="next" title="2018总结">
+      2018总结 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#一、背景"><span class="nav-number">1.</span> <span class="nav-text">一、背景</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-1、需求来源"><span class="nav-number">1.1.</span> <span class="nav-text">1.1、需求来源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1-2、环境介绍"><span class="nav-number">1.2.</span> <span class="nav-text">1.2、环境介绍</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二、解决方案步骤"><span class="nav-number">2.</span> <span class="nav-text">二、解决方案步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1、准备工作"><span class="nav-number">2.1.</span> <span class="nav-text">2.1、准备工作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2、表结构恢复"><span class="nav-number">2.2.</span> <span class="nav-text">2.2、表结构恢复</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3、表数据恢复"><span class="nav-number">2.3.</span> <span class="nav-text">2.3、表数据恢复</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#三、总结"><span class="nav-number">3.</span> <span class="nav-text">三、总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

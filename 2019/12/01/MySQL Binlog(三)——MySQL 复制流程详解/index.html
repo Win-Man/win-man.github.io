@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="MySQL Binlog(三)——MySQL 复制流程详解前言上一篇文章讲了MySQL协议的基础内容，在本文中我们通过分析MySQL复制流程看看MySQL协议在复制中的使用。 MySQL复制流程概述按照复制原理中描述的，在备库上提交change master to请求主备数据连接以后  TCP连接阶段：备库和主库之间会建立TCP链接（TCP/IP的三次握手建立连接过程不在本文讨论范畴，这里不详细描">
+<meta name="keywords" content="MySQL,Binlog">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL Binlog(三)——MySQL 复制流程详解">
+<meta property="og:url" content="http://yoursite.com/2019/12/01/MySQL Binlog(三)——MySQL 复制流程详解/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="MySQL Binlog(三)——MySQL 复制流程详解前言上一篇文章讲了MySQL协议的基础内容，在本文中我们通过分析MySQL复制流程看看MySQL协议在复制中的使用。 MySQL复制流程概述按照复制原理中描述的，在备库上提交change master to请求主备数据连接以后  TCP连接阶段：备库和主库之间会建立TCP链接（TCP/IP的三次握手建立连接过程不在本文讨论范畴，这里不详细描">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20191201164105.png">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL Binlog(三)——MySQL 复制流程详解">
+<meta name="twitter:description" content="MySQL Binlog(三)——MySQL 复制流程详解前言上一篇文章讲了MySQL协议的基础内容，在本文中我们通过分析MySQL复制流程看看MySQL协议在复制中的使用。 MySQL复制流程概述按照复制原理中描述的，在备库上提交change master to请求主备数据连接以后  TCP连接阶段：备库和主库之间会建立TCP链接（TCP/IP的三次握手建立连接过程不在本文讨论范畴，这里不详细描">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20191201164105.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/12/01/MySQL Binlog(三)——MySQL 复制流程详解/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL Binlog(三)——MySQL 复制流程详解 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/12/01/MySQL Binlog(三)——MySQL 复制流程详解/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL Binlog(三)——MySQL 复制流程详解
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2019-12-01 16:41:13" itemprop="dateCreated datePublished" datetime="2019-12-01T16:41:13+00:00">2019-12-01</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="MySQL-Binlog-三-——MySQL-复制流程详解"><a href="#MySQL-Binlog-三-——MySQL-复制流程详解" class="headerlink" title="MySQL Binlog(三)——MySQL 复制流程详解"></a>MySQL Binlog(三)——MySQL 复制流程详解</h1><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>上一篇文章讲了MySQL协议的基础内容，在本文中我们通过分析MySQL复制流程看看MySQL协议在复制中的使用。</p>
+<h2 id="MySQL复制流程概述"><a href="#MySQL复制流程概述" class="headerlink" title="MySQL复制流程概述"></a>MySQL复制流程概述</h2><p>按照复制原理中描述的，在备库上提交change master to请求主备数据连接以后</p>
+<ol>
+<li>TCP连接阶段：备库和主库之间会建立TCP链接（TCP/IP的三次握手建立连接过程不在本文讨论范畴，这里不详细描述）</li>
+<li>用户认证阶段：主库会对备库的用户名密码进行认证，进行MySQL应用层的三次握手</li>
+<li>register_slave注册slave阶段：备库通过register_slave将自己注册到主库上（该步骤可忽略），以便master在show slave host时可以查看到哪些slave连接上来了</li>
+<li>request_dump请求binlog阶段：备库通过request_dump，请求从主库指定的二进制日志和文件偏移量开始获取所有的二进制日志。</li>
+<li>master发送Binlog Event阶段：Master启动binlog dump线程，从指定的二进制日志的对应文件偏移量开始向备库的IO线程发送二进制日志Event。（该步骤在主库上就是读取文件和网络发送的过程，本文档中不详细描述）</li>
+<li>备库接收存储Relaylog阶段：备库的IO线程持续接收Event并将Event存储relay log中。具体Event的存储格式以及各种类型的字段在Binlog Event的存储格式请参考后续文章。</li>
+</ol>
+<p>接下来的几节将详细对以上2，3，4步的网络协议字节格式、及可能取值等方面进行详细描述</p>
+<h2 id="用户认证过程详解"><a href="#用户认证过程详解" class="headerlink" title="用户认证过程详解"></a>用户认证过程详解</h2><h3 id="用户认证时序图"><a href="#用户认证时序图" class="headerlink" title="用户认证时序图"></a>用户认证时序图</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Master-&gt;Slave:Server Greeting 开始MySQL握手协议</span><br><span class="line">Slave-&gt;Master:Login Request 进行账号密码验证登陆</span><br><span class="line">Master-&gt;Slave:Response OK 账号密码验证通过</span><br></pre></td></tr></table></figure>
+<p>如图所示，</p>
+<ol>
+<li>master先发送了greeting网络包；</li>
+<li>slave接收到该网络包以后提交帐号密码进行验证；</li>
+<li>master接收到用户名密码，验证通过后会通过Response OK 返回表示认证通过。</li>
+</ol>
+<blockquote>
+<p>普通的客户端连接MySQL同样需要经历这三次握手协议。</p>
+</blockquote>
+<h3 id="异常情况"><a href="#异常情况" class="headerlink" title="异常情况"></a>异常情况</h3><ul>
+<li>第1步如果slave没有接收到greeting网络包，在超时等待后会报错退出</li>
+<li>第2步，如果master没有接收到slave提交的帐号密码，此时，可以在master数据库中看到类似于如下信息：</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20191201164105.png" alt></p>
+<p>可以看到当前数据库中会有一个连接连上来，但是在User字段显示是的unauthenticated user，这就是表示连接已经建立，但是用户认证还没有完成。该线程的状态是Receiving from client，表示正在等待client发送用户认证的数据信息。超时等待后，master也会报错并中止对应的线程.</p>
+<ul>
+<li>第3步，如果master密码认证错误，会直接发送一个错误包，slave和Master都需要中止这个连接。</li>
+</ul>
+<p>接下来几节将详细描述用户认证时序图中1，2，3三个网络包的具体字节分段含义。</p>
+<h3 id="Server-Greeting步骤"><a href="#Server-Greeting步骤" class="headerlink" title="Server Greeting步骤"></a>Server Greeting步骤</h3><h4 id="相关代码位置"><a href="#相关代码位置" class="headerlink" title="相关代码位置"></a>相关代码位置</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sql/rpl_slave.cc文件中的handle_slave_io() </span><br><span class="line">=&gt; sql/rpl_slave.cc文件中的safe_connect()函数 </span><br><span class="line">=&gt; sql/rpl_slave.cc文件中的connect_to_master()函数</span><br><span class="line">=&gt; sql-common/client.c文件中的CLI_MYSQL_REAL_CONNECT()函数part1</span><br></pre></td></tr></table></figure>
+<h4 id="Greeting数据包格式"><a href="#Greeting数据包格式" class="headerlink" title="Greeting数据包格式"></a>Greeting数据包格式</h4><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>名字</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>int<3></3></td>
+<td>payload_length</td>
+<td>数据包中有效信息的长度，不包括数据包头部4个字节的长度</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>sequence_id</td>
+<td>数据包序列号</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>协议版本号</td>
+<td>表示当前连接使用的协议版本</td>
+</tr>
+<tr>
+<td>string&lt; null-terminated &gt;</td>
+<td>服务器版本信息</td>
+<td>表示当前server端服务器版本</td>
+</tr>
+<tr>
+<td>int<4></4></td>
+<td>thread_id</td>
+<td>表示当前连接，在server上的线程ID</td>
+</tr>
+<tr>
+<td>string&lt; null-terminated &gt;</td>
+<td>scramble data part1</td>
+<td>用于密码校验的随机数部分一</td>
+</tr>
+<tr>
+<td>int<2></2></td>
+<td></td>
+<td>无意义</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>server_charset</td>
+<td>服务器的字符集</td>
+</tr>
+<tr>
+<td>int<2></2></td>
+<td>server_status</td>
+<td>服务器状态</td>
+</tr>
+<tr>
+<td>int<2></2></td>
+<td>server_capability</td>
+<td>服务器权能标志</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>pkt_scramble_length</td>
+<td></td>
+</tr>
+<tr>
+<td>string[10]</td>
+<td></td>
+<td>无意义</td>
+</tr>
+<tr>
+<td>string&lt; null-terminated &gt;</td>
+<td>scramble data part2</td>
+<td>用于密码校验的随机数部分二</td>
+</tr>
+<tr>
+<td>string&lt; null-terminated &gt;</td>
+<td>scramble plugin name</td>
+<td>用于密码校验的插件名称</td>
+</tr>
+</tbody>
+</table>
+<h4 id="数据包解析示例"><a href="#数据包解析示例" class="headerlink" title="数据包解析示例"></a>数据包解析示例</h4><p>数据包示例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">4e 00 00 数据包长度 //88</span><br><span class="line">00 数据包序号 //0</span><br><span class="line">0a 协议版本号//10</span><br><span class="line">35 2e 37 2e 31 39 2d 6c 6f 67 00 服务器版本信息 //5.7.19-log</span><br><span class="line">72 00 00 00 线程ID //114</span><br><span class="line">7e 1a 15 11 07 0a 7e 1c 00 scramble data part1</span><br><span class="line">ff f7 </span><br><span class="line">53 服务器字符集 //</span><br><span class="line">02 00 服务器状态</span><br><span class="line">ff 81 服务器权能标志</span><br><span class="line">15 pkt_scramble_length</span><br><span class="line">00 00 00 00 00 00 00 00 00 00 无用</span><br><span class="line">0b 2c 62 79 75 7a 3d 01 61 25 6f 22 00 scramble data part2</span><br><span class="line">6d 79 73 71 6c 5f 6e 61 74 69 76 65 5f 70 61 73 73 77 6f 72 64 00 scramble插件名字 //mysql_native_password</span><br></pre></td></tr></table></figure>
+<p>各分段含义解释：</p>
+<ul>
+<li>数据包长度：MySQL协议中固定格式，前三个字节表示数据包长度，这个长度不包括固定格式的4个字节</li>
+<li>数据包序号：MySQL协议中固定格式，用一个字节表示数据包的序号</li>
+<li>协议版本号：MySQL协议的版本序号</li>
+<li>服务器版本信息：服务器的版本，这边为5.7.19-log</li>
+<li>线程ID：表示master分配给该连接的线程的ID号，与show processlist中的thread id对应</li>
+<li>scramble data part1:master 生成的随机数，用于加密密码</li>
+<li>服务器字符集：表示master使用的字符集编码</li>
+<li>服务器状态:表示服务器状态</li>
+</ul>
+<p>在/include/mysql_com.h定义了服务器的状态</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">#define SERVER_STATUS_IN_TRANS     1</span><br><span class="line">#define SERVER_STATUS_AUTOCOMMIT   2	/* Server in auto_commit mode */</span><br><span class="line">#define SERVER_MORE_RESULTS_EXISTS 8    /* Multi query - next query exists */</span><br><span class="line">#define SERVER_QUERY_NO_GOOD_INDEX_USED 16</span><br><span class="line">#define SERVER_QUERY_NO_INDEX_USED      32</span><br><span class="line">#define SERVER_STATUS_CURSOR_EXISTS 64</span><br><span class="line">#define SERVER_STATUS_LAST_ROW_SENT 128</span><br><span class="line">#define SERVER_STATUS_DB_DROPPED        256 /* A database was dropped */</span><br><span class="line">#define SERVER_STATUS_NO_BACKSLASH_ESCAPES 512</span><br><span class="line">#define SERVER_STATUS_METADATA_CHANGED 1024</span><br><span class="line">#define SERVER_QUERY_WAS_SLOW          2048</span><br><span class="line">#define SERVER_PS_OUT_PARAMS            4096</span><br><span class="line">#define SERVER_STATUS_IN_TRANS_READONLY 8192</span><br><span class="line">#define SERVER_SESSION_STATE_CHANGED (1UL &lt;&lt; 14)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>服务器权能标志：用于与客户端协商协议方式</li>
+</ul>
+<p>在/include/mysql_com.h定义</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">#define CLIENT_LONG_PASSWORD	1	/* new more secure passwords */</span><br><span class="line">#define CLIENT_FOUND_ROWS	2	/* Found instead of affected rows */</span><br><span class="line">#define CLIENT_LONG_FLAG	4	/* Get all column flags */</span><br><span class="line">#define CLIENT_CONNECT_WITH_DB	8	/* One can specify db on connect */</span><br><span class="line">#define CLIENT_NO_SCHEMA	16	/* Don&apos;t allow database.table.column */</span><br><span class="line">#define CLIENT_COMPRESS	32	/* Can use compression protocol */</span><br><span class="line">#define CLIENT_ODBC	64	/* Odbc client */</span><br><span class="line">#define CLIENT_LOCAL_FILES	128	/* Can use LOAD DATA LOCAL */</span><br><span class="line">#define CLIENT_IGNORE_SPACE	256	/* Ignore spaces before &apos;(&apos; */</span><br><span class="line">#define CLIENT_PROTOCOL_41	512	/* New 4.1 protocol */</span><br><span class="line">#define CLIENT_INTERACTIVE	1024	/* This is an interactive client */</span><br><span class="line">#define CLIENT_SSL              2048	/* Switch to SSL after handshake */</span><br><span class="line">#define CLIENT_IGNORE_SIGPIPE   4096    /* IGNORE sigpipes */</span><br><span class="line">#define CLIENT_TRANSACTIONS	8192	/* Client knows about transactions */</span><br><span class="line">#define CLIENT_RESERVED         16384   /* Old flag for 4.1 protocol  */</span><br><span class="line">#define CLIENT_RESERVED2        32768   /* Old flag for 4.1 authentication */</span><br><span class="line">#define CLIENT_MULTI_STATEMENTS (1UL &lt;&lt; 16) /* Enable/disable multi-stmt support */</span><br><span class="line">#define CLIENT_MULTI_RESULTS    (1UL &lt;&lt; 17) /* Enable/disable multi-results */</span><br><span class="line">#define CLIENT_PS_MULTI_RESULTS (1UL &lt;&lt; 18) /* Multi-results in PS-protocol */</span><br><span class="line">#define CLIENT_PLUGIN_AUTH  (1UL &lt;&lt; 19) /* Client supports plugin authentication */</span><br><span class="line">#define CLIENT_CONNECT_ATTRS (1UL &lt;&lt; 20) /* Client supports connection attributes */</span><br><span class="line">/* Enable authentication response packet to be larger than 255 bytes. */</span><br><span class="line">#define CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA (1UL &lt;&lt; 21)</span><br><span class="line">/* Don&apos;t close the connection for a connection with expired password. */</span><br><span class="line">#define CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS (1UL &lt;&lt; 22)</span><br><span class="line">/**</span><br><span class="line">  Capable of handling server state change information. Its a hint to the</span><br><span class="line">  server to include the state change information in Ok packet.</span><br><span class="line">*/</span><br><span class="line">#define CLIENT_SESSION_TRACK (1UL &lt;&lt; 23)</span><br><span class="line">/* Client no longer needs EOF packet */</span><br><span class="line">#define CLIENT_DEPRECATE_EOF (1UL &lt;&lt; 24)</span><br><span class="line">#define CLIENT_SSL_VERIFY_SERVER_CERT (1UL &lt;&lt; 30)</span><br><span class="line">#define CLIENT_REMEMBER_OPTIONS (1UL &lt;&lt; 31)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>scramble data part2：与scramble data part1组成为随机数，用于加密密码</li>
+<li>scramble插件名字：指定用于scramble data加密方式的插件,这边为native_mysql_password</li>
+</ul>
+<h3 id="Login-Request步骤"><a href="#Login-Request步骤" class="headerlink" title="Login Request步骤"></a>Login Request步骤</h3><p>本节主要描述slave发送的用户认证的数据包(slave-&gt;master)过程</p>
+<h4 id="相关代码位置-1"><a href="#相关代码位置-1" class="headerlink" title="相关代码位置"></a>相关代码位置</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">sql/rpl_slave.cc文件中的handle_slave_io() </span><br><span class="line">=&gt; sql/rpl_slave.cc文件中的safe_connect()函数 </span><br><span class="line">=&gt; sql/rpl_slave.cc文件中的connect_to_master()函数</span><br><span class="line">=&gt; sql-common/client.c文件中的CLI_MYSQL_REAL_CONNECT()函数</span><br><span class="line">=&gt; sql-common/client.c文件中的run_plugin_auth()函数</span><br><span class="line">=&gt; sql-common/client.c文件中的native_password_auth_client()函数</span><br></pre></td></tr></table></figure>
+<h4 id="数据包格式"><a href="#数据包格式" class="headerlink" title="数据包格式"></a>数据包格式</h4><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>名字</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>int<3></3></td>
+<td>payload_length</td>
+<td>数据包中有效信息的长度，不包括数据包头部4个字节的长度</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>sequence_id</td>
+<td>数据包序列号</td>
+</tr>
+<tr>
+<td>int<4></4></td>
+<td>client_flag</td>
+<td>client的标记</td>
+</tr>
+<tr>
+<td>int<4></4></td>
+<td>max_packet_size</td>
+<td>允许发送的最大数据包的大小</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>client_charset</td>
+<td>client使用的字符集</td>
+</tr>
+<tr>
+<td>string[23]</td>
+<td></td>
+<td>无用</td>
+</tr>
+<tr>
+<td>string&lt; null-terminated &gt;</td>
+<td>user_name</td>
+<td>登陆的用户名</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>client_capability</td>
+<td></td>
+</tr>
+<tr>
+<td>string[20]</td>
+<td>加密后的scramble_data</td>
+<td></td>
+</tr>
+<tr>
+<td>string&lt; null-terminated &gt;</td>
+<td>database_name</td>
+<td>要连接的数据库的名称</td>
+</tr>
+<tr>
+<td>string&lt; null-terminated &gt;</td>
+<td>scramble_plugin_name</td>
+<td>用于密码校验的插件名称</td>
+</tr>
+</tbody>
+</table>
+<h4 id="数据包解析"><a href="#数据包解析" class="headerlink" title="数据包解析"></a>数据包解析</h4><p>数据包示例</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">58 00 00 数据包长度 //98</span><br><span class="line">01 数据包序号 //1</span><br><span class="line">0d a2 2b 00 client flag</span><br><span class="line">01 00 00 00 max_packet_size</span><br><span class="line">08 client使用的字符集编码 //latin1</span><br><span class="line">00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 无用</span><br><span class="line">71 62 65 6e 63 68 00 用户名 //qbench</span><br><span class="line">14 client权能标识</span><br><span class="line">f2 4c b6 e9 4c 0d d7 9d 07 30 c9 21 07 4f 23 51 09 a1 af 47 加密之后的scramble data</span><br><span class="line">6d 79 73 71 6c 00 连接的数据库 //mysql</span><br><span class="line">6d 79 73 71 6c 5f 6e 61 74 69 76 65 5f 70 61 73 73 77 6f 72 64 00 加密的插件名称 //mysql_native_password</span><br></pre></td></tr></table></figure>
+<p>各分段数据含义：</p>
+<ul>
+<li>数据包长度：MySQL协议中固定格式，前三个字节表示数据包长度，这个长度不包括固定格式的4个字节</li>
+<li>数据包序号：MySQL协议中固定格式，用一个字节表示数据包的序号</li>
+<li>client flag ：指定客户端发送数据的一些规范，</li>
+<li>max_packet_size:指定客户端发送数据包的最大值，</li>
+<li>client使用的字符集编码：client所使用的字符集编码</li>
+<li>用户名：用于用户登陆的用户名</li>
+<li>client权能标识：client capability</li>
+<li>加密之后的scramble data：将用于登陆的密码加密之后得到的结果</li>
+</ul>
+<p>参考淘宝内核月报关于native_mysql_password插件加密方式：</p>
+<blockquote>
+<p>client:<br>hash_stage1 = sha1(password) hash_stage2 = sha1(hash_stage1) reply = sha1(scramble, hash_stage2) ^ hash_stage1<br>server: (逻辑位于sql/password.c:check_scramble_sha1中, 下文亦有提及)<br>// mysql.user表中, 对应user的passwd实际上是hash_stage2 res1 = sha1(scramble, hash_stage2) hash_stage1 = reply ^ res1 hash_stage2_reassured = sha1(hash_stage1) 再根据hash_stage2_reassured == hash_stage2(from mysql.user)是否一致来判定是否合法</p>
+</blockquote>
+<ul>
+<li>数据库名称：指定要连接的schema的名称</li>
+<li>加密插件的名称：进行加密的插件的名称，这边为native_mysql_password</li>
+</ul>
+<h4 id="异常情况-1"><a href="#异常情况-1" class="headerlink" title="异常情况"></a>异常情况</h4><p>在用户认证过程中，master发送给slave一个Greeting包之后，slave发送一个auth包给master，因为我们是模拟IO线程的过程，所以这个auth包的内容是我们自己组织的，在发送将auth包发送给master进行用户认证的过程中，可能会出现一些异常情况，这样会导致master返回一个非OK包，这边列举可能出现的异常情况。</p>
+<ul>
+<li><p>slave发送的auth包中，用户名和密码错误<br>master会返回一个ERR包，ERR包中会包含‘ACCESS DENIED’的信息 1045号错误。</p>
+</li>
+<li><p>slave发送的auth包中，数据组织格式有问题<br>master会返回一个EOF包，并中断连接。</p>
+</li>
+</ul>
+<h3 id="response-ok步骤详解"><a href="#response-ok步骤详解" class="headerlink" title="response ok步骤详解"></a>response ok步骤详解</h3><p>认证没有问题master将直接返回一个OK包。</p>
+<h2 id="register-slave注册slave过程过程详解"><a href="#register-slave注册slave过程过程详解" class="headerlink" title="register_slave注册slave过程过程详解"></a>register_slave注册slave过程过程详解</h2><h3 id="register-slave-认证时序图"><a href="#register-slave-认证时序图" class="headerlink" title="register slave 认证时序图"></a>register slave 认证时序图</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Slave-&gt;Master:Request Query 设置master_binlog_checksum（必须）</span><br><span class="line">Master-&gt;Slave:Response OK 请求执行成功</span><br><span class="line">Slave-&gt;Master:Request Query 设置slave_uuid（非必须）</span><br><span class="line">Master-&gt;Slave:Response OK 请求执行成功</span><br><span class="line">Slave-&gt;Master:Request Register Slave 发送register slave命令（非必须）</span><br><span class="line">Master-&gt;Slave:Response OK 注册slave成功</span><br></pre></td></tr></table></figure>
+<p>如图所示，注册slave的过程如下</p>
+<ol>
+<li>slave客户端直接SET @master_binlog_checksum= @@global.binlog_checksum</li>
+<li>设置正确，返回Ok Packet</li>
+<li>设置其他相关配置，比如slave_uuid等</li>
+<li>设置正确，返回Ok Packet</li>
+<li>slave发送register_slave 注册slave请求</li>
+<li>设置正确，返回Ok Packet</li>
+</ol>
+<blockquote>
+<p>注册slave步骤主要是为了方便主库能获得slave的IP/Port等信息，第5步可忽略</p>
+</blockquote>
+<h3 id="异常情况-2"><a href="#异常情况-2" class="headerlink" title="异常情况"></a>异常情况</h3><ul>
+<li>第1步，第3步如果设置的命令有误，Master将返回Error Packet。</li>
+<li>第5步，如果填充的register_slave Packet包错误，Master同样将返回Error Packet</li>
+</ul>
+<p>接下来几节将详细描述上述第5步网络包的具体字节分段含义。</p>
+<h3 id="Register-Slave-步骤"><a href="#Register-Slave-步骤" class="headerlink" title="Register Slave 步骤"></a>Register Slave 步骤</h3><h4 id="相关代码位置-2"><a href="#相关代码位置-2" class="headerlink" title="相关代码位置"></a>相关代码位置</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sql/rpl_slave.cc文件中的handle_slave_io()函数</span><br><span class="line">==&gt;sql/rpl_slave.cc文件中的register_slave_on_master()函数</span><br></pre></td></tr></table></figure>
+<h4 id="数据包格式-1"><a href="#数据包格式-1" class="headerlink" title="数据包格式"></a>数据包格式</h4><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>名字</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>int<3></3></td>
+<td>payload_length</td>
+<td>数据包中有效信息的长度，不包括数据包头部4个字节的长度</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>sequence_id</td>
+<td>数据包序列号</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>command_type</td>
+<td>发送的请求的类型</td>
+</tr>
+<tr>
+<td>int<4></4></td>
+<td>server_id</td>
+<td>slave的server_id</td>
+</tr>
+<tr>
+<td>string&lt; null-terminated &gt;</td>
+<td>report_host</td>
+<td></td>
+</tr>
+<tr>
+<td>string&lt; null-terminated &gt;</td>
+<td>report_user</td>
+<td></td>
+</tr>
+<tr>
+<td>string&lt; null-terninated &gt;</td>
+<td>report_password</td>
+<td></td>
+</tr>
+<tr>
+<td>int<2></2></td>
+<td>port</td>
+<td>端口号</td>
+</tr>
+<tr>
+<td>string[8]</td>
+<td></td>
+<td>无用</td>
+</tr>
+</tbody>
+</table>
+<h4 id="数据包解析-1"><a href="#数据包解析-1" class="headerlink" title="数据包解析"></a>数据包解析</h4><p>数据包示例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">12 00 00 数据包长度</span><br><span class="line">00 数据包序号</span><br><span class="line">15 发送的command类型 0x15表示的是COM_REGISTER_SLAVE类型的命令</span><br><span class="line">0f 27 00 00 slave的server_id</span><br><span class="line">00 report host</span><br><span class="line">00 report user</span><br><span class="line">00 report password</span><br><span class="line">ea 0c 端口号</span><br><span class="line">00 00 00 00 00 00 00 00 无用</span><br></pre></td></tr></table></figure>
+<p>各分段数据含义：</p>
+<ul>
+<li>数据包长度：MySQL协议中固定格式，前三个字节表示数据包长度，这个长度不包括固定格式的4个字节</li>
+<li>数据包序号：MySQL协议中固定格式，用一个字节表示数据包的序号</li>
+<li>COMMAND类型：表示发送的请求的类型</li>
+</ul>
+<p>在my_command.h文件中定义了command的类型：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">enum enum_server_command</span><br><span class="line">&#123;</span><br><span class="line">  COM_SLEEP,COM_QUIT,</span><br><span class="line">  COM_INIT_DB,</span><br><span class="line">  COM_QUERY,</span><br><span class="line">  COM_FIELD_LIST,</span><br><span class="line">  COM_CREATE_DB,</span><br><span class="line">  COM_DROP_DB,</span><br><span class="line">  COM_REFRESH,</span><br><span class="line">  COM_SHUTDOWN,</span><br><span class="line">  COM_STATISTICS,</span><br><span class="line">  COM_PROCESS_INFO,</span><br><span class="line">  COM_CONNECT,</span><br><span class="line">  COM_PROCESS_KILL,</span><br><span class="line">  COM_DEBUG,</span><br><span class="line">  COM_PING,</span><br><span class="line">  COM_TIME,</span><br><span class="line">  COM_DELAYED_INSERT,</span><br><span class="line">  COM_CHANGE_USER,</span><br><span class="line">  COM_BINLOG_DUMP,</span><br><span class="line">  COM_TABLE_DUMP,</span><br><span class="line">  COM_CONNECT_OUT,</span><br><span class="line">  COM_REGISTER_SLAVE,</span><br><span class="line">  COM_STMT_PREPARE,</span><br><span class="line">  COM_STMT_EXECUTE,</span><br><span class="line">  COM_STMT_SEND_LONG_DATA,</span><br><span class="line">  COM_STMT_CLOSE,</span><br><span class="line">  COM_STMT_RESET,</span><br><span class="line">  COM_SET_OPTION,</span><br><span class="line">  COM_STMT_FETCH,</span><br><span class="line">  COM_DAEMON,</span><br><span class="line">  COM_BINLOG_DUMP_GTID,</span><br><span class="line">  COM_RESET_CONNECTION,</span><br><span class="line">  COM_END</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>report host:指定report的IP地址</li>
+<li>report user:指定report的user</li>
+<li>report password：指定report的账户的密码</li>
+<li>端口号：指定连接的端口号，等于change master to语句中的port选项</li>
+</ul>
+<h4 id="异常情况-3"><a href="#异常情况-3" class="headerlink" title="异常情况"></a>异常情况</h4><p>如果填充的register_slave Packet包错误，Master同样将返回Error Packet</p>
+<h2 id="request-dump请求binlog过程详解"><a href="#request-dump请求binlog过程详解" class="headerlink" title="request dump请求binlog过程详解"></a>request dump请求binlog过程详解</h2><h3 id="request-dump-请求时序图"><a href="#request-dump-请求时序图" class="headerlink" title="request dump 请求时序图"></a>request dump 请求时序图</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Slave-&gt;Master:Request Send Binlog 请求发送binlog</span><br><span class="line">Master-&gt;Slave:Rotate Event 主库发送一个Rotate Event内容</span><br><span class="line">Master-&gt;Slave:Format Description Event 主库发送一个Format Description Event内容</span><br><span class="line">Master-&gt;Slave:··················Binlog Event</span><br><span class="line">Master-&gt;Slave:··················Binlog Event</span><br><span class="line">Master-&gt;Slave:··················Binlog Event</span><br></pre></td></tr></table></figure>
+<p>如图所示，请求binlog的过程如下</p>
+<ol>
+<li>slave客户端发送request dump请求，请求中包含binlog dump开始发送二进制文件名称和偏移量</li>
+<li>master接收到请求，位置正确的话，会先发送Rotate Event表示接下来的二进制日志将从指定的二进制文件和偏移量开始发送</li>
+<li>master紧接着会从指定的二进制文件头读取Format Description Event 并发送给slave，用于slave 确认各个event的header长度等信息。</li>
+<li>master从二进制文件和偏移量开始读取二进制数据并通过网络发给Slave</li>
+</ol>
+<p>异常情况下：</p>
+<ul>
+<li>第1步，如果slave请求的二进制文件或者偏移量不正确，master将返回ERR Packet</li>
+</ul>
+<h3 id="Request-dump-步骤"><a href="#Request-dump-步骤" class="headerlink" title="Request dump 步骤"></a>Request dump 步骤</h3><h4 id="相关代码位置-3"><a href="#相关代码位置-3" class="headerlink" title="相关代码位置"></a>相关代码位置</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sql/rpl_slave.cc文件中的handle_slave_io()函数</span><br><span class="line">==&gt;sql/rpl_slave.cc文件中的request_dump()函数</span><br></pre></td></tr></table></figure>
+<h4 id="数据包格式-2"><a href="#数据包格式-2" class="headerlink" title="数据包格式"></a>数据包格式</h4><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>名字</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>int<3></3></td>
+<td>payload_length</td>
+<td>数据包中有效信息的长度，不包括数据包头部4个字节的长度</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>sequence_id</td>
+<td>数据包序列号</td>
+</tr>
+<tr>
+<td>int<1></1></td>
+<td>command_type</td>
+<td>发送的请求的类型</td>
+</tr>
+<tr>
+<td>int<4></4></td>
+<td>binlog_pos</td>
+<td>请求的binlog位置点</td>
+</tr>
+<tr>
+<td>int<2></2></td>
+<td>binlog_flag</td>
+<td></td>
+</tr>
+<tr>
+<td>int<4></4></td>
+<td>server_id</td>
+<td>slave的server_id</td>
+</tr>
+<tr>
+<td>string&lt; reset-of_packet &gt;</td>
+<td>binlog_file_name</td>
+<td>请求的binlog文件名</td>
+</tr>
+</tbody>
+</table>
+<h4 id="数据包解析-2"><a href="#数据包解析-2" class="headerlink" title="数据包解析"></a>数据包解析</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">1b 00 00 数据包长度</span><br><span class="line">00 数据包序号</span><br><span class="line">12 发送的command类型 0x12表示的是COM_BINLOG_DUMP</span><br><span class="line">9a 00 00 00 binlog位置点</span><br><span class="line">00 00 binlog flag</span><br><span class="line">0f 27 00 00 slave_server_id</span><br><span class="line">6d 79 73 71 6c 2d 62 69 6e 2e 30 30 30 30 30 31binlog文件名</span><br></pre></td></tr></table></figure>
+<ul>
+<li>数据包长度：MySQL协议中固定格式，前三个字节表示数据包长度，这个长度不包括固定格式的4个字节</li>
+<li>数据包序号：MySQL协议中固定格式，用一个字节表示数据包的序号</li>
+<li>COMMAND类型：表示发送的请求的类型</li>
+<li>binlog位置点：表示请求的binlog位置</li>
+<li>binlog flag：</li>
+<li>slave_server_id：表示slave的server_id</li>
+<li>binlog文件名：表示请求的binlog的文件名</li>
+</ul>
+<h4 id="异常情况-4"><a href="#异常情况-4" class="headerlink" title="异常情况"></a>异常情况</h4><ul>
+<li>binlog 请求的位置点大于对应binlog_file中最大的位置点<br>Master返回一个ERR数据包，Err Packet格式参见“3.3.2 ”</li>
+</ul>
+<p>示例数据包：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">4f 00 00 数据包长度</span><br><span class="line">01 数据包序号</span><br><span class="line">ff ERR数据包标识</span><br><span class="line">d4 04 error code</span><br><span class="line">23 48 59 30 30 30 43 6c 69 65 6e 74 20 72 65 71 75 65 73 74 65 64 20 6d 61 73 74 65 72 20 74 6f 20 73 74 61 72 74 20 72 65 70 6c 69 63 61 74 69 6f 6e 20 66 72 6f 6d 20 70 6f 73 69 74 69 6f 6e 20 3e 20 66 69 6c 65 20 73 69 7a 65 错误信息</span><br></pre></td></tr></table></figure>
+<p>各分段数据包含义：</p>
+<ul>
+<li>错误号为：1236</li>
+<li>错误信息为：Client requested master to start replication from position&gt;filesize</li>
+</ul>
+<ul>
+<li>binlog 请求的位置点不是event起始位置点</li>
+</ul>
+<p>Master返回一个ERR数据包，Err Packet格式参见上一篇文章中ERR_Packet部分内容。</p>
+<p>数据包示例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">e1 00 00 数据包长度</span><br><span class="line">03 数据包序号</span><br><span class="line">ff ERR数据包标识</span><br><span class="line">d4 04 error code</span><br><span class="line">23 48 59 30 30 30 62 6f 67 75 73 20 64 61 74 61 20 69 6e 20 6c 6f 67 20 65 76 65 6e 74 3b 20 74 68 65 20 66 69 72 73 74 20 65 76 65 6e 74 20 27 6d 79 73 71 6c 2d 62 69 6e 2e 30 30 30 30 30 31 27 20 61 74 20 31 36 30 2c 20 74 68 65 20 6c 61 73 74 20 65 76 65 6e 74 20 72 65 61 64 20 66 72 6f 6d 20 27 2f 6f 70 74 2f 6d 79 73 71 6c 2f 64 61 74 61 2f 62 69 6e 6c 6f 67 2f 6d 79 73 71 6c 2d 62 69 6e 2e 30 30 30 30 30 31 27 20 61 74 20 31 32 33 2c 20 74 68 65 20 6c 61 73 74 20 62 79 74 65 20 72 65 61 64 20 66 72 6f 6d 20 27 2f 6f 70 74 2f 6d 79 73 71 6c 2f 64 61 74 61 2f 62 69 6e 6c 6f 67 2f 6d 79 73 71 6c 2d 62 69 6e 2e 30 30 30 30 30 31 27 20 61 74 20 31 37 39 2e 错误信息</span><br></pre></td></tr></table></figure>
+<p>各分段含义：</p>
+<ul>
+<li>错误号为：1236</li>
+<li>错误信息为：bogusdatain log event;the first event’mysql-bin.000001’at160,the last event read from’/opt/mysql/data/binlog/mysql-bin.000001’at123,the last byte read from’/opt/mysql/data/binlog/mysql-bin.000001’at179.</li>
+</ul>
+<ul>
+<li>binlog 请求的binlog filename 不存在</li>
+</ul>
+<p>Master返回一个ERR数据包</p>
+<p>数据包示例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">44 00 00 数据包长度</span><br><span class="line">01 数据包序号</span><br><span class="line">ff ERR数据包标识</span><br><span class="line">d4 04 error code</span><br><span class="line">23 48 59 30 30 30 43 6f 75 6c 64 20 6e 6f 74 20 66 69 6e 64 20 66 69 72 73 74 20 6c 6f 67 20 66 69 6c 65 20 6e 61 6d 65 20 69 6e 20 62 69 6e 61 72 79 20 6c 6f 67 20 69 6e 64 65 78 20 66 69 6c 65 错误信息</span><br></pre></td></tr></table></figure>
+<p>各分段数据含义：</p>
+<ul>
+<li>错误号为：1236</li>
+<li>错误信息为：Could not find first log filename in binary log index file</li>
+</ul>
+<h2 id="整体流程回顾"><a href="#整体流程回顾" class="headerlink" title="整体流程回顾"></a>整体流程回顾</h2><p>最后我们再整体来看一下MySQL复制链接在建立连接的完整过程</p>
+<ul>
+<li>Master与Slave建立TCP/IP连接</li>
+<li>Master发送第一个MySQL协议的Greeting包给Slave</li>
+<li>Slave根据发送的数据包，加密自己的账户及密码等信息，发送给Master</li>
+<li>Master根据Slave发送的auth数据包进行认证，认证成功，则发送一个Response OK数据包给Slave，Slave完成用户登录</li>
+<li>Slave发送一个Query的请求，设置当前连接的master_binlog_checksum为@@global.binlog_checksum这一步是必须的，这是设置校验码</li>
+<li>Master处理完Slave的Query请求之后，发送一个Response OK数据包给Slave</li>
+<li>Slave发送一个Query请求，设置当前连接的slave_uuid为从库的uuid，这一步非必须</li>
+<li>Master处理完Slave的Query请求之后，发送一个Response OK数据包给Slave</li>
+<li>Slave向Master发送一个Register Slave的数据包，进行slave线程的注册</li>
+<li>Master将slave线程注册完成之后，返回一个Response OK数据包</li>
+<li>Slave在注册成功之后，向Master发送Binlog Dump命令，发送请求的binlog的文件名以及pos点</li>
+<li>Master在收到Slave的Binlog Dump命令之后，首先发送一个Rotate Event的内容给Slave，告诉Slave当前发送的binlog的文件名为什么</li>
+<li>Master之后再发送一个Format Description Event内容给Slave，包括版本信息，位置点等信息</li>
+<li>接着Master按照Slave的Binlog Dump请求中携带的pos点的信息，从该binlog文件偏移位置为pos的地方将Event内容取出来，发送给Slave</li>
+</ul>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><ul>
+<li>MySQL协议官方文档<a href="https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_PROTOCOL.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_PROTOCOL.html</a></li>
+<li><a href="http://mysql.taobao.org/monthly/2017/08/05/" target="_blank" rel="noopener">http://mysql.taobao.org/monthly/2017/08/05/</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+              <a href="/tags/Binlog/" rel="tag"># Binlog</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/11/17/MySQL Binlog(二)——MySQL 协议基础/" rel="prev" title="MySQL Binlog(二)——MySQL 协议基础">
+      <i class="fa fa-chevron-left"></i> MySQL Binlog(二)——MySQL 协议基础
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/12/07/MySQL Binlog(四)——MySQL binlog event解析——基础知识/" rel="next" title="MySQL Binlog(四)—— MySQL binlog event解析——基础知识">
+      MySQL Binlog(四)—— MySQL binlog event解析——基础知识 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#MySQL-Binlog-三-——MySQL-复制流程详解"><span class="nav-number">1.</span> <span class="nav-text">MySQL Binlog(三)——MySQL 复制流程详解</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MySQL复制流程概述"><span class="nav-number">1.2.</span> <span class="nav-text">MySQL复制流程概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#用户认证过程详解"><span class="nav-number">1.3.</span> <span class="nav-text">用户认证过程详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#用户认证时序图"><span class="nav-number">1.3.1.</span> <span class="nav-text">用户认证时序图</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#异常情况"><span class="nav-number">1.3.2.</span> <span class="nav-text">异常情况</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Server-Greeting步骤"><span class="nav-number">1.3.3.</span> <span class="nav-text">Server Greeting步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#相关代码位置"><span class="nav-number">1.3.3.1.</span> <span class="nav-text">相关代码位置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Greeting数据包格式"><span class="nav-number">1.3.3.2.</span> <span class="nav-text">Greeting数据包格式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据包解析示例"><span class="nav-number">1.3.3.3.</span> <span class="nav-text">数据包解析示例</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Login-Request步骤"><span class="nav-number">1.3.4.</span> <span class="nav-text">Login Request步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#相关代码位置-1"><span class="nav-number">1.3.4.1.</span> <span class="nav-text">相关代码位置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据包格式"><span class="nav-number">1.3.4.2.</span> <span class="nav-text">数据包格式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据包解析"><span class="nav-number">1.3.4.3.</span> <span class="nav-text">数据包解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#异常情况-1"><span class="nav-number">1.3.4.4.</span> <span class="nav-text">异常情况</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#response-ok步骤详解"><span class="nav-number">1.3.5.</span> <span class="nav-text">response ok步骤详解</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#register-slave注册slave过程过程详解"><span class="nav-number">1.4.</span> <span class="nav-text">register_slave注册slave过程过程详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#register-slave-认证时序图"><span class="nav-number">1.4.1.</span> <span class="nav-text">register slave 认证时序图</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#异常情况-2"><span class="nav-number">1.4.2.</span> <span class="nav-text">异常情况</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Register-Slave-步骤"><span class="nav-number">1.4.3.</span> <span class="nav-text">Register Slave 步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#相关代码位置-2"><span class="nav-number">1.4.3.1.</span> <span class="nav-text">相关代码位置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据包格式-1"><span class="nav-number">1.4.3.2.</span> <span class="nav-text">数据包格式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据包解析-1"><span class="nav-number">1.4.3.3.</span> <span class="nav-text">数据包解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#异常情况-3"><span class="nav-number">1.4.3.4.</span> <span class="nav-text">异常情况</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#request-dump请求binlog过程详解"><span class="nav-number">1.5.</span> <span class="nav-text">request dump请求binlog过程详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#request-dump-请求时序图"><span class="nav-number">1.5.1.</span> <span class="nav-text">request dump 请求时序图</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Request-dump-步骤"><span class="nav-number">1.5.2.</span> <span class="nav-text">Request dump 步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#相关代码位置-3"><span class="nav-number">1.5.2.1.</span> <span class="nav-text">相关代码位置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据包格式-2"><span class="nav-number">1.5.2.2.</span> <span class="nav-text">数据包格式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#数据包解析-2"><span class="nav-number">1.5.2.3.</span> <span class="nav-text">数据包解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#异常情况-4"><span class="nav-number">1.5.2.4.</span> <span class="nav-text">异常情况</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#整体流程回顾"><span class="nav-number">1.6.</span> <span class="nav-text">整体流程回顾</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考链接"><span class="nav-number">1.7.</span> <span class="nav-text">参考链接</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

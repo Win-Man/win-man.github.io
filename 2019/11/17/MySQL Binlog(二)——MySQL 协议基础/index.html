@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="MySQL Binlog(二)——MySQL 协议基础1. 前言上篇讲了MySQL的复制原理，这篇文章来讲讲建立复制过程中使用的MySQL通讯协议。MySQL协议是用于MySQL中Server端与Client端进行通讯的协议，MySQL主备复制也遵守Server和Client端通讯协议。 2. 基础数据类型MySQL协议传输中的数据包含两种类型，一种是数值型数据，另一种是字符型数据。 2.1 数值">
+<meta name="keywords" content="MySQL,Binlog">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL Binlog(二)——MySQL 协议基础">
+<meta property="og:url" content="http://yoursite.com/2019/11/17/MySQL Binlog(二)——MySQL 协议基础/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="MySQL Binlog(二)——MySQL 协议基础1. 前言上篇讲了MySQL的复制原理，这篇文章来讲讲建立复制过程中使用的MySQL通讯协议。MySQL协议是用于MySQL中Server端与Client端进行通讯的协议，MySQL主备复制也遵守Server和Client端通讯协议。 2. 基础数据类型MySQL协议传输中的数据包含两种类型，一种是数值型数据，另一种是字符型数据。 2.1 数值">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL Binlog(二)——MySQL 协议基础">
+<meta name="twitter:description" content="MySQL Binlog(二)——MySQL 协议基础1. 前言上篇讲了MySQL的复制原理，这篇文章来讲讲建立复制过程中使用的MySQL通讯协议。MySQL协议是用于MySQL中Server端与Client端进行通讯的协议，MySQL主备复制也遵守Server和Client端通讯协议。 2. 基础数据类型MySQL协议传输中的数据包含两种类型，一种是数值型数据，另一种是字符型数据。 2.1 数值">
+
+<link rel="canonical" href="http://yoursite.com/2019/11/17/MySQL Binlog(二)——MySQL 协议基础/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL Binlog(二)——MySQL 协议基础 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/17/MySQL Binlog(二)——MySQL 协议基础/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL Binlog(二)——MySQL 协议基础
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2019-11-17 10:41:13" itemprop="dateCreated datePublished" datetime="2019-11-17T10:41:13+00:00">2019-11-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="MySQL-Binlog-二-——MySQL-协议基础"><a href="#MySQL-Binlog-二-——MySQL-协议基础" class="headerlink" title="MySQL Binlog(二)——MySQL 协议基础"></a>MySQL Binlog(二)——MySQL 协议基础</h1><h2 id="1-前言"><a href="#1-前言" class="headerlink" title="1. 前言"></a>1. 前言</h2><p>上篇讲了MySQL的复制原理，这篇文章来讲讲建立复制过程中使用的MySQL通讯协议。MySQL协议是用于MySQL中Server端与Client端进行通讯的协议，MySQL主备复制也遵守Server和Client端通讯协议。</p>
+<h2 id="2-基础数据类型"><a href="#2-基础数据类型" class="headerlink" title="2. 基础数据类型"></a>2. 基础数据类型</h2><p>MySQL协议传输中的数据包含两种类型，一种是数值型数据，另一种是字符型数据。</p>
+<h3 id="2-1-数值型数据"><a href="#2-1-数值型数据" class="headerlink" title="2.1 数值型数据"></a>2.1 数值型数据</h3><ul>
+<li>Protocol::FixedLengthInteger </li>
+</ul>
+<p>MySQL使用Protocol::FixedLenthInteger 表示固定长度的整数</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>长度</th>
+<th>对应函数</th>
+<th>实际对应类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>int<1></1></td>
+<td>1 byte</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>int<2></2></td>
+<td>2 byte</td>
+<td>int2store()</td>
+<td>uint16</td>
+</tr>
+<tr>
+<td>int<3></3></td>
+<td>3 byte</td>
+<td>int3store()</td>
+<td>uint</td>
+</tr>
+<tr>
+<td>int<4></4></td>
+<td>4 byte</td>
+<td>int4store()</td>
+<td>uint32</td>
+</tr>
+<tr>
+<td>int<6></6></td>
+<td>6 byte</td>
+<td>int6store()</td>
+<td>ulonglong</td>
+</tr>
+<tr>
+<td>int<8></8></td>
+<td>8 byte</td>
+<td>int8store()</td>
+<td>ulonglong</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Protocol::LengthEncodedInteger </li>
+</ul>
+<p>使用Protocol::LengthEncodedInteger类型表示的整数，会根据表示的整数大小占用不同的字节数（1，3，4或9个字节）</p>
+<table>
+<thead>
+<tr>
+<th>整数范围</th>
+<th>表示方式</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0≤N＜251</td>
+<td>1 byte</td>
+<td>0x08 表示整数8</td>
+</tr>
+<tr>
+<td>251≤N＜2^16</td>
+<td>0xFC + 2 byte</td>
+<td>0xFC0008 = 0xFC + 0x0008 表示整数260</td>
+</tr>
+<tr>
+<td>2^16≤N＜2^24</td>
+<td>0xFD + 3 byte</td>
+<td>0xFD123456 = 0xFD + 0x123456  表示整数1193299</td>
+</tr>
+<tr>
+<td>2^24≤N＜2^64</td>
+<td>0xFE + 8 byte</td>
+<td>0xFE0000000000000009 = 0xFE + 0x0000000000000009 表示整数263</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2-2-字符型数据"><a href="#2-2-字符型数据" class="headerlink" title="2.2 字符型数据"></a>2.2 字符型数据</h3><ul>
+<li>Protocol::FixedLengthString 固定长度的字符串</li>
+</ul>
+<p>字符串用固定长度表示，例如ERR_Packet中的 <code>sql_state</code> 部分就是固定5个字节长度</p>
+<ul>
+<li>Protocol::NullTerminatedString</li>
+<li><p>以0x00结尾的字符串</p>
+</li>
+<li><p>Protocol::VariableLengthString</p>
+</li>
+</ul>
+<p>在程序运行过程中动态确定长度的字符串</p>
+<ul>
+<li>Protocol::LengthEncodedString</li>
+</ul>
+<p>在字符串开始用Protocol::LengthEncodedInteger类型整数表示字符串的长度</p>
+<ul>
+<li>Protocol::RestOfPacketString</li>
+</ul>
+<p>字符串是整个数据包的最后一个组成部分，字符串的长度等于整个数据包的长度减去当前位置</p>
+<h2 id="3-基本协议数据包格式"><a href="#3-基本协议数据包格式" class="headerlink" title="3. 基本协议数据包格式"></a>3. 基本协议数据包格式</h2><p>MySQL中server端与client端进行数据交换的时候，会将要交换的数据，按照上述的协议数据类型封装成数据包，然后通过MySQL协议进行数据包的传输。</p>
+<h3 id="3-1-基础数据包的格式定义"><a href="#3-1-基础数据包的格式定义" class="headerlink" title="3.1 基础数据包的格式定义"></a>3.1 基础数据包的格式定义</h3><p>相关代码位置：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sql/net_serv.cc -&gt; net_write_command()函数</span><br></pre></td></tr></table></figure>
+<table>
+<thead>
+<tr>
+<th>名字</th>
+<th>基本数据类型</th>
+<th>类型</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>payload_length</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<3></3></td>
+<td>数据包中有效信息的长度，不包括数据包头部4个字节的长度</td>
+</tr>
+<tr>
+<td>sequence_id</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<1></1></td>
+<td>数据包序列号</td>
+</tr>
+<tr>
+<td>payload</td>
+<td>Protocol::VariableLengthString</td>
+<td>string<var></var></td>
+<td>数据包的有效信息</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-2-基础数据包的格式解析"><a href="#3-2-基础数据包的格式解析" class="headerlink" title="3.2 基础数据包的格式解析"></a>3.2 基础数据包的格式解析</h3><p>MySQL协议中数据包固定由 <code>payload_length</code> + <code>sequence_id</code> + <code>payload</code> 组成。每个数据包前3个字节固定存储<code>payload_length</code>信息，即数据包中有效信息<code>payload</code>的长度，第4个字节表示该数据包在此次通信中的序号。因为<code>payload_length</code>为int<3>类型，所以能表示的最大<code>payload</code>部分长度为2^24-1个字节，也就是说一个数据包能传输的数据量最大为2^24-1字节（合16MB）。</3></p>
+<p>那么对于一次请求中，数据量超过16MB的数据，MySQL是如何处理的呢？</p>
+<p>对于<code>payload</code>部分大于等于16MB的，MySQL会将数据进行切分，每16MB为一部分，然后将切分的数据按照数据包的格式封装，进行发送，直到切分的数据部分长度小于16MB。</p>
+<h2 id="4-常见数据包示例"><a href="#4-常见数据包示例" class="headerlink" title="4. 常见数据包示例"></a>4. 常见数据包示例</h2><p>上面介绍了MySQL协议中数据包的基础格式，这一节介绍MySQL协议中常见的数据包类型，不同类型的数据包，其格式都是符合上述的基础数据包格式定义的。但是对于不同数据包类型，其<code>payload</code>部分的数据格式是不同的。</p>
+<h3 id="4-1-OK-Packet"><a href="#4-1-OK-Packet" class="headerlink" title="4.1 OK_Packet"></a>4.1 OK_Packet</h3><p>对于Client发送的请求，如果执行成功，则Server端会向Client端发送OK_Packet告诉Client端请求执行成功。但是在5.7.5版本之后，OK Packet也可以用于表示EOF信息，原先的 EOF_Packet被废弃了，EOF Packet后面章节会详细描述。</p>
+<h4 id="4-1-1-OK-Packet的格式定义"><a href="#4-1-1-OK-Packet的格式定义" class="headerlink" title="4.1.1 OK_Packet的格式定义"></a>4.1.1 OK_Packet的格式定义</h4><p>相关代码位置：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sql/protocol_classic.cc -&gt; net_send_ok()函数</span><br></pre></td></tr></table></figure>
+<table>
+<thead>
+<tr>
+<th>名字</th>
+<th>基本数据类型</th>
+<th>类型</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>header</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<1></1></td>
+<td>0x00表示该数据包是OK_Packet，0xFE表示该数据包是ERR_Packet</td>
+</tr>
+<tr>
+<td>affect_rows</td>
+<td>Protocol::LengthEncodedInteger</td>
+<td>int<lenenc></lenenc></td>
+<td>请求在Server端执行影响的记录行数</td>
+</tr>
+<tr>
+<td>last_insert_id</td>
+<td>Protocol::LengthEncodedInteger</td>
+<td>int<lenenc></lenenc></td>
+<td>对于INSERT请求，表示最近插入的那行记录的自增字段值</td>
+</tr>
+<tr>
+<td>status_flags</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<2></2></td>
+<td>Server端的状态信息，如果Client发送的请求中带有CLIENT_PROTOCOL_41标志,会有这一部分，否则为空</td>
+</tr>
+<tr>
+<td>warnings</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<2></2></td>
+<td>警告的数量，如果Client发送的请求中带有CLIENT_PROTOCOL_41标志,会有这一部分，否则为空</td>
+</tr>
+<tr>
+<td>status_flag</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<2></2></td>
+<td>如果Client发送的请求中带有CLIENT_TRANSACTIONS标志,会有这一部分，否则为空</td>
+</tr>
+<tr>
+<td>messages</td>
+<td>Protocol::LengthEncodedString</td>
+<td>string<lenenc></lenenc></td>
+<td>当前会话状态改变的信息，如果Client发送的请求中带有CLIENT_SESSION_TRACK标志，会有这一部分，否则为空</td>
+</tr>
+<tr>
+<td>session_state_change_info</td>
+<td>Protocol::LengthEncodedString</td>
+<td>string<lenenc></lenenc></td>
+<td>当前会话状态改变的信息，如果Client发送的请求中带有SERVER_SESSION_STATE_CHANGED标志,会有这一部分，否则为空</td>
+</tr>
+<tr>
+<td>messages</td>
+<td>Protocol::RestOfPacketString</td>
+<td>string<eof></eof></td>
+<td>请求执行结果信息，如果不包含信息，该部分为空</td>
+</tr>
+</tbody>
+</table>
+<p>其中<code>int&lt;lenenc&gt;</code>和<code>string&lt;lenenc&gt;</code>中的lenenc表示的是LengthEcode。</p>
+<p><code>status_flag</code>字段中记录的是Server端的状态信息，MySQL支持的<code>server_status</code>类型：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">#define SERVER_STATUS_IN_TRANS 1</span><br><span class="line">#define SERVER_STATUS_AUTOCOMMIT 2    /* Server in auto_commit mode */</span><br><span class="line">#define SERVER_MORE_RESULTS_EXISTS 8 /* Multi query - next query exists */</span><br><span class="line">#define SERVER_QUERY_NO_GOOD_INDEX_USED 16</span><br><span class="line">#define SERVER_QUERY_NO_INDEX_USED 32</span><br><span class="line">#define SERVER_STATUS_CURSOR_EXISTS 64</span><br><span class="line">#define SERVER_STATUS_LAST_ROW_SENT 128</span><br><span class="line">#define SERVER_STATUS_DB_DROPPED 256 /* A database was dropped */</span><br><span class="line">#define SERVER_STATUS_NO_BACKSLASH_ESCAPES 512</span><br><span class="line">#define SERVER_STATUS_METADATA_CHANGED 1024</span><br><span class="line">#define SERVER_QUERY_WAS_SLOW 2048</span><br><span class="line">#define SERVER_PS_OUT_PARAMS 4096</span><br><span class="line">#define SERVER_STATUS_IN_TRANS_READONLY 8192</span><br><span class="line">#define SERVER_SESSION_STATE_CHANGED (1UL &lt;&lt; 14)</span><br></pre></td></tr></table></figure>
+<p>当表示两个及两个以上状态时，将代表多个状态的值做<code>^</code>运算即可。</p>
+<h4 id="4-1-2-OK-Packet的格式解析"><a href="#4-1-2-OK-Packet的格式解析" class="headerlink" title="4.1.2 OK Packet的格式解析"></a>4.1.2 OK Packet的格式解析</h4><p>上面讲到5.7.5版本之后，OK Packet既可以表示OK Packet也可以表示EOF Packet，那么在5.7.5之后如何区分是OK Packet 还是 EOF Packet呢？</p>
+<ul>
+<li>OK_Packet:头部部分是0x00，并且数据包的长度是大于7</li>
+<li>EOF_Packet:头部部分是0xFE，并且数据包的长度是小于9</li>
+</ul>
+<p>为了保证5.7.5之前版本与之后版本的兼容性，5.7.5之后的MySQL 版本中的client端都会发送<code>CLIENT_DEPRECATE_EOF</code>标志。旧版本client不会发送该标志，所以Server端还是采用专门的EOF_Packet（下面会具体介绍）表示EOF信息，新版本的client在向Server端发送请求时会带上该标志，但是对于旧版本的Server端，无法识别该标志，所以依然是采用专门的EOF_Packet表示EOF信息。</p>
+<p>client端发送带<code>CLIENT_PROTOCOL_41</code>标志的数据包示例（内容为16进制格式）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">07 00 00 #数据包长度</span><br><span class="line">02           #数据包序号</span><br><span class="line">00           #头部</span><br><span class="line">00          #影响的记录行数</span><br><span class="line">00          #上一次插入的记录自增值</span><br><span class="line">02 00     #状态标志</span><br><span class="line">00 00     #警告数量</span><br></pre></td></tr></table></figure>
+<p>各分段数据含义：</p>
+<ul>
+<li>数据包长度：MySQL协议中固定格式，示例中<code>07 00 00</code>表示0x000007，代表数据包长度为7个字节</li>
+<li>数据包序号：MySQL协议中固定格式，示例中<code>00</code>表示数据包序号为2</li>
+<li>头部：示例中<code>ff</code>表示该数据包为OK_Packet</li>
+<li>影响的记录行数：示例中<code>00</code>表示0x00，代表本次client请求共影响0行记录</li>
+<li>上一次插入的记录自增值：实例中<code>00</code>表示0x00</li>
+<li>状态标志：因为是小端存储，所以示例中<code>02 00</code>表示0x0002，代表Server端开启了auto_commit</li>
+<li>警告的数量：因为是小端存储，所以示例中<code>00 00</code>表示0x0000，表示告警数量为0</li>
+</ul>
+<h4 id="4-1-3-Session-State-Information"><a href="#4-1-3-Session-State-Information" class="headerlink" title="4.1.3 Session State Information"></a>4.1.3 Session State Information</h4><p>OK_Packet中也可以记录会话级别的状态改变信息，包括系统变量信息、当前会话使用的schema信息、会话级别状态改变信息、事务特性、事务状态信息。当Client端发送的请求中带有<code>SERVER_SESSION_STATE_CHANGED</code>标志，则在Server端返回的OK_Packet中会带有这些信息。OK_Packet一共支持如下几种会话级别状态信息：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">enum enum_session_state_type</span><br><span class="line">&#123;</span><br><span class="line">  SESSION_TRACK_SYSTEM_VARIABLES, /* Session system variables */</span><br><span class="line">  SESSION_TRACK_SCHEMA, /* Current schema */</span><br><span class="line">  SESSION_TRACK_STATE_CHANGE, /* track session state changes */</span><br><span class="line">  SESSION_TRACK_GTIDS,</span><br><span class="line">  SESSION_TRACK_TRANSACTION_CHARACTERISTICS, /* Transaction chistics */</span><br><span class="line">  SESSION_TRACK_TRANSACTION_STATE /* Transaction state */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>具体可参考官方文档：<a href="https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_ok_packet.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_ok_packet.html</a></p>
+<h3 id="4-2-ERR-Packet"><a href="#4-2-ERR-Packet" class="headerlink" title="4.2 ERR_Packet"></a>4.2 ERR_Packet</h3><p>该数据包用于返回出现错误信息。<br>相关代码位置：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sql/protocol_classic.cc -&gt; net_send_error_packet()函数</span><br></pre></td></tr></table></figure>
+<h4 id="4-2-1-ERR-Packet的格式定义"><a href="#4-2-1-ERR-Packet的格式定义" class="headerlink" title="4.2.1 ERR_Packet的格式定义"></a>4.2.1 ERR_Packet的格式定义</h4><p>在5.7.5之前版本中，ERR_Packet采用单独表示格式，5.7.5之后，ERR_Packet与OK_Packet复用相同格式。以下是针对5.7.5之前版本介绍ERR_Packet格式定义。</p>
+<table>
+<thead>
+<tr>
+<th>名字</th>
+<th>基本数据类型</th>
+<th>类型</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>header</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<1></1></td>
+<td>用0xFF表示该数据包是一个ERR Packet</td>
+</tr>
+<tr>
+<td>error_no</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<2></2></td>
+<td>表示错误的类型，小端存储</td>
+</tr>
+<tr>
+<td>sql_state_marker</td>
+<td>Protocol::VariableLengthString</td>
+<td>string[1]</td>
+<td>如果Client发送的请求中带有CLIENT_PROTOCOL_41标志，会有这一部分，否则为空</td>
+</tr>
+<tr>
+<td>sql_state</td>
+<td>Protocol::VariableLengthString</td>
+<td>string[5]</td>
+<td>如果Client发送的请求中带有CLIENT_PROTOCOL_41标志，会有这一部分，否则为空</td>
+</tr>
+<tr>
+<td>err_message</td>
+<td>Protocol::RestOfPacketString</td>
+<td>string<eof></eof></td>
+<td>可读的错误信息详情</td>
+</tr>
+</tbody>
+</table>
+<h4 id="4-2-2-ERR-Packet的格式解析"><a href="#4-2-2-ERR-Packet的格式解析" class="headerlink" title="4.2.2 ERR_Packet的格式解析"></a>4.2.2 ERR_Packet的格式解析</h4><p>数据包示例（内容为16进制格式）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">4b 00 00  #数据包长度</span><br><span class="line">02            #数据包序号</span><br><span class="line">ff              #ERR_Packet标识</span><br><span class="line">15 04       #错误号</span><br><span class="line">23 32 38 30 30 30 41 63 63 65 73 73 20 64 65 6e 69 65 64 20 66 6f 72 20 75 73 65 72 20 27 72 65 70 6c 27 40 27 31 32 31 2e 31 32 31 2e 30 2e 36 34 27 20 28 75 73 69 6e 67 20 70 61 73 73 77 6f 72 64 3a 20 59 45 53 29  #错误信息</span><br></pre></td></tr></table></figure>
+<p>各分段数据含义：</p>
+<ul>
+<li>数据包长度：MySQL协议中固定格式，示例中<code>4b 00 00</code>表示0x00004b，代表数据包长度为75个字节</li>
+<li>数据包序号：MySQL协议中固定格式，示例中<code>00</code>表示数据包序号为0</li>
+<li>头部：示例中<code>ff</code>表示该数据包为ERR_Packet</li>
+<li>错误号：因为是小端存储，所以示例中<code>15 04</code>对应16进制0x0415，转换为10进制为1045</li>
+<li>错误信息：示例中的内容可以转换为<code>Access denied for user &#39;repl&#39;@&#39;121.121.0.64&#39;(usingpassword:YES)</code></li>
+</ul>
+<h3 id="4-3-EOF-Packet"><a href="#4-3-EOF-Packet" class="headerlink" title="4.3 EOF_Packet"></a>4.3 EOF_Packet</h3><p>表示当前会话可以结束了，结束连接的信号。<br>相关代码位置:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sql/protocol_classic.cc -&gt; write_eof_packet()函数</span><br></pre></td></tr></table></figure>
+<h4 id="4-3-1-EOF-Packet的格式定义"><a href="#4-3-1-EOF-Packet的格式定义" class="headerlink" title="4.3.1 EOF_Packet的格式定义"></a>4.3.1 EOF_Packet的格式定义</h4><table>
+<thead>
+<tr>
+<th>名字</th>
+<th>基本数据类型</th>
+<th>类型</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>header</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<1></1></td>
+<td>用0xFE表示该数据包是一个ERR_Packet</td>
+</tr>
+<tr>
+<td>warnings</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<2></2></td>
+<td>警告的数量，如果Client发送的请求中带有CLIENT_PROTOCOL_41标志，会有这一部分，否则为空，小端存储</td>
+</tr>
+<tr>
+<td>server_status</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<2></2></td>
+<td>Server端的状态信息，如果Client发送的请求中带有CLIENT_PROTOCOL_41标志,会有这一部分，否则为空，小端存储</td>
+</tr>
+</tbody>
+</table>
+<p>其中<code>server_status</code>内容参照OK_Packet中<code>status_flags</code>字段。</p>
+<h4 id="4-3-2-EOF-Packet的格式解析"><a href="#4-3-2-EOF-Packet的格式解析" class="headerlink" title="4.3.2 EOF_Packet的格式解析"></a>4.3.2 EOF_Packet的格式解析</h4><p>数据包示例（内容为16进制格式）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">05 00 00  #数据包长度</span><br><span class="line">05            #数据包序号</span><br><span class="line">fe             #头部</span><br><span class="line">00 00       #警告的数量</span><br><span class="line">02 00       #Server端的状态信息</span><br></pre></td></tr></table></figure>
+<p>各分段数据含义：</p>
+<ul>
+<li>数据包长度：MySQL协议中固定格式，示例中<code>05 00 00</code>表示0x000005，代表数据包长度为5个字节</li>
+<li>数据包序号：MySQL协议中固定格式，示例中<code>05</code>表示数据包序号为5</li>
+<li>头部：标识是否是EOF数据包，0xFE标识该数据包是EOF_Packet</li>
+<li>警告的数量：因为是小端存储，所以示例中<code>00 00</code>表示0x0000，表示告警数量为0</li>
+<li>Server端的状态信息：因为是小端存储，所以示例中<code>02 00</code>表示0x0002，代表Server端开启了auto_commit</li>
+</ul>
+<h3 id="4-4-Query-Packet"><a href="#4-4-Query-Packet" class="headerlink" title="4.4 Query_Packet"></a>4.4 Query_Packet</h3><h4 id="4-4-1-Query-Packet的格式定义"><a href="#4-4-1-Query-Packet的格式定义" class="headerlink" title="4.4.1 Query_Packet的格式定义"></a>4.4.1 Query_Packet的格式定义</h4><table>
+<thead>
+<tr>
+<th>名字</th>
+<th>基本数据类型</th>
+<th>类型</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>payload_length</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<3></3></td>
+<td>数据包中有效信息的长度，不包括数据包头部4个字节的长度，小端存储</td>
+</tr>
+<tr>
+<td>sequence_id</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<1></1></td>
+<td>数据包序列号</td>
+</tr>
+<tr>
+<td>command_type</td>
+<td>Protocol::FixedLengthInteger</td>
+<td>int<1></1></td>
+<td>要发送的请求的类型</td>
+</tr>
+<tr>
+<td>command</td>
+<td>Protocol::RestOfPacketString</td>
+<td>string<eof></eof></td>
+<td>请求内容</td>
+</tr>
+</tbody>
+</table>
+<h4 id="4-4-2-Query-Packet的格式解析"><a href="#4-4-2-Query-Packet的格式解析" class="headerlink" title="4.4.2 Query_Packet的格式解析"></a>4.4.2 Query_Packet的格式解析</h4><p>以<code>SET @master_binlog_checksum</code>语句请求为例</p>
+<p>数据包示例（内容为16进制格式）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">36 00 00    #数据包长度</span><br><span class="line">00              #数据包序号</span><br><span class="line">03              #发送的command类型 0x03表示的是COM_QUERY类型的命令</span><br><span class="line">53 45 54 20 40 6d 61 73 74 65 72 5f 62 69 6e 6c 6f 67 5f 63 68 65 63 6b 73 75 6d 3d 20 40 40 67 6c 6f 62 61 6c 2e 62 69 6e 6c 6f 67 5f 63 68 65 63 6b 73 75 6d   #要发送的请求语句 //SET @master_binlog_checksum=@@global.binlog_checksum</span><br></pre></td></tr></table></figure>
+<p>各分段数据含义： </p>
+<ul>
+<li>数据包长度：MySQL协议中固定格式，示例中<code>36 00 00</code>表示0x000036，代表数据包长度为36个字节</li>
+<li>数据包序号：MySQL协议中固定格式，示例中<code>00</code>表示数据包序号为0</li>
+<li>COMMAND类型：表示发送的请求的类型，MySQL支持的命令类型如下：</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">enum enum_server_command</span><br><span class="line">&#123;</span><br><span class="line">  COM_SLEEP,COM_QUIT,</span><br><span class="line">  COM_INIT_DB,</span><br><span class="line">  COM_QUERY,</span><br><span class="line">  COM_FIELD_LIST,</span><br><span class="line">  COM_CREATE_DB,</span><br><span class="line">  COM_DROP_DB,</span><br><span class="line">  COM_REFRESH,</span><br><span class="line">  COM_SHUTDOWN,</span><br><span class="line">  COM_STATISTICS,</span><br><span class="line">  COM_PROCESS_INFO,</span><br><span class="line">  COM_CONNECT,</span><br><span class="line">  COM_PROCESS_KILL,</span><br><span class="line">  COM_DEBUG,</span><br><span class="line">  COM_PING,</span><br><span class="line">  COM_TIME,</span><br><span class="line">  COM_DELAYED_INSERT,</span><br><span class="line">  COM_CHANGE_USER,</span><br><span class="line">  COM_BINLOG_DUMP,</span><br><span class="line">  COM_TABLE_DUMP,</span><br><span class="line">  COM_CONNECT_OUT,</span><br><span class="line">  COM_REGISTER_SLAVE,</span><br><span class="line">  COM_STMT_PREPARE,</span><br><span class="line">  COM_STMT_EXECUTE,</span><br><span class="line">  COM_STMT_SEND_LONG_DATA,</span><br><span class="line">  COM_STMT_CLOSE,</span><br><span class="line">  COM_STMT_RESET,</span><br><span class="line">  COM_SET_OPTION,</span><br><span class="line">  COM_STMT_FETCH,</span><br><span class="line">  COM_DAEMON,</span><br><span class="line">  COM_BINLOG_DUMP_GTID,</span><br><span class="line">  COM_RESET_CONNECTION,</span><br><span class="line">  COM_END</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>要发送的请求语句：将要发送的语句转换为ASCII对应的16进制，示例中的内容可以转换为：<code>SET @master_binlog_checksum=@@global.binlog_checksum</code></li>
+</ul>
+<h2 id="5-参考链接"><a href="#5-参考链接" class="headerlink" title="5. 参考链接"></a>5. 参考链接</h2><ul>
+<li><a href="https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_integers.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_integers.html</a></li>
+<li><a href="https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_strings.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_strings.html</a></li>
+<li><a href="https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_packets.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_packets.html</a></li>
+<li><a href="https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_response_packets.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_response_packets.html</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+              <a href="/tags/Binlog/" rel="tag"># Binlog</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/11/17/MySQL Binlog(一)——MySQL复制原理基础/" rel="prev" title="MySQL Binlog(一)——MySQL复制原理基础">
+      <i class="fa fa-chevron-left"></i> MySQL Binlog(一)——MySQL复制原理基础
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/12/01/MySQL Binlog(三)——MySQL 复制流程详解/" rel="next" title="MySQL Binlog(三)——MySQL 复制流程详解">
+      MySQL Binlog(三)——MySQL 复制流程详解 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#MySQL-Binlog-二-——MySQL-协议基础"><span class="nav-number">1.</span> <span class="nav-text">MySQL Binlog(二)——MySQL 协议基础</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-前言"><span class="nav-number">1.1.</span> <span class="nav-text">1. 前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-基础数据类型"><span class="nav-number">1.2.</span> <span class="nav-text">2. 基础数据类型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-数值型数据"><span class="nav-number">1.2.1.</span> <span class="nav-text">2.1 数值型数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-字符型数据"><span class="nav-number">1.2.2.</span> <span class="nav-text">2.2 字符型数据</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-基本协议数据包格式"><span class="nav-number">1.3.</span> <span class="nav-text">3. 基本协议数据包格式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-基础数据包的格式定义"><span class="nav-number">1.3.1.</span> <span class="nav-text">3.1 基础数据包的格式定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-基础数据包的格式解析"><span class="nav-number">1.3.2.</span> <span class="nav-text">3.2 基础数据包的格式解析</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-常见数据包示例"><span class="nav-number">1.4.</span> <span class="nav-text">4. 常见数据包示例</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-OK-Packet"><span class="nav-number">1.4.1.</span> <span class="nav-text">4.1 OK_Packet</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-1-OK-Packet的格式定义"><span class="nav-number">1.4.1.1.</span> <span class="nav-text">4.1.1 OK_Packet的格式定义</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-OK-Packet的格式解析"><span class="nav-number">1.4.1.2.</span> <span class="nav-text">4.1.2 OK Packet的格式解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-3-Session-State-Information"><span class="nav-number">1.4.1.3.</span> <span class="nav-text">4.1.3 Session State Information</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-ERR-Packet"><span class="nav-number">1.4.2.</span> <span class="nav-text">4.2 ERR_Packet</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-2-1-ERR-Packet的格式定义"><span class="nav-number">1.4.2.1.</span> <span class="nav-text">4.2.1 ERR_Packet的格式定义</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-2-2-ERR-Packet的格式解析"><span class="nav-number">1.4.2.2.</span> <span class="nav-text">4.2.2 ERR_Packet的格式解析</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-EOF-Packet"><span class="nav-number">1.4.3.</span> <span class="nav-text">4.3 EOF_Packet</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-1-EOF-Packet的格式定义"><span class="nav-number">1.4.3.1.</span> <span class="nav-text">4.3.1 EOF_Packet的格式定义</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-3-2-EOF-Packet的格式解析"><span class="nav-number">1.4.3.2.</span> <span class="nav-text">4.3.2 EOF_Packet的格式解析</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-Query-Packet"><span class="nav-number">1.4.4.</span> <span class="nav-text">4.4 Query_Packet</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-1-Query-Packet的格式定义"><span class="nav-number">1.4.4.1.</span> <span class="nav-text">4.4.1 Query_Packet的格式定义</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-2-Query-Packet的格式解析"><span class="nav-number">1.4.4.2.</span> <span class="nav-text">4.4.2 Query_Packet的格式解析</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-参考链接"><span class="nav-number">1.5.</span> <span class="nav-text">5. 参考链接</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

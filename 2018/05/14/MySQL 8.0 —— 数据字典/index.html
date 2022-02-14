@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="1、简介MySQL 8.0 将数据库元信息都存放于InnoDB存储引擎表中，在之前版本的MySQL中，数据字典不仅仅存放于特定的存储引擎表中，还存放于元数据文件、非事务性存储引擎表中。本文将会介绍MySQL 8.0对数据字典的改进，以及改进带来的好处、影响以及局限性。 2、数据字典2.1、新版本之前的数据字典数据字典是数据库重要的组成部分之一，那么什么是数据字典？数据字典包含哪些内容呢？数据字典是">
+<meta name="keywords" content="MySQL,数据字典">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL 8.0 —— 数据字典">
+<meta property="og:url" content="http://yoursite.com/2018/05/14/MySQL 8.0 —— 数据字典/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="1、简介MySQL 8.0 将数据库元信息都存放于InnoDB存储引擎表中，在之前版本的MySQL中，数据字典不仅仅存放于特定的存储引擎表中，还存放于元数据文件、非事务性存储引擎表中。本文将会介绍MySQL 8.0对数据字典的改进，以及改进带来的好处、影响以及局限性。 2、数据字典2.1、新版本之前的数据字典数据字典是数据库重要的组成部分之一，那么什么是数据字典？数据字典包含哪些内容呢？数据字典是">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL 8.0 —— 数据字典">
+<meta name="twitter:description" content="1、简介MySQL 8.0 将数据库元信息都存放于InnoDB存储引擎表中，在之前版本的MySQL中，数据字典不仅仅存放于特定的存储引擎表中，还存放于元数据文件、非事务性存储引擎表中。本文将会介绍MySQL 8.0对数据字典的改进，以及改进带来的好处、影响以及局限性。 2、数据字典2.1、新版本之前的数据字典数据字典是数据库重要的组成部分之一，那么什么是数据字典？数据字典包含哪些内容呢？数据字典是">
+<meta name="twitter:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+
+<link rel="canonical" href="http://yoursite.com/2018/05/14/MySQL 8.0 —— 数据字典/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL 8.0 —— 数据字典 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/05/14/MySQL 8.0 —— 数据字典/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL 8.0 —— 数据字典
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2018-05-14 11:08:13" itemprop="dateCreated datePublished" datetime="2018-05-14T11:08:13+00:00">2018-05-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="1、简介"><a href="#1、简介" class="headerlink" title="1、简介"></a>1、简介</h2><p>MySQL 8.0 将数据库元信息都存放于InnoDB存储引擎表中，在之前版本的MySQL中，数据字典不仅仅存放于特定的存储引擎表中，还存放于元数据文件、非事务性存储引擎表中。本文将会介绍MySQL 8.0对数据字典的改进，以及改进带来的好处、影响以及局限性。</p>
+<h2 id="2、数据字典"><a href="#2、数据字典" class="headerlink" title="2、数据字典"></a>2、数据字典</h2><h3 id="2-1、新版本之前的数据字典"><a href="#2-1、新版本之前的数据字典" class="headerlink" title="2.1、新版本之前的数据字典"></a>2.1、新版本之前的数据字典</h3><p>数据字典是数据库重要的组成部分之一，那么什么是数据字典？数据字典包含哪些内容呢？数据字典是对数据库中的数据、库对象、表对象等的元信息的集合。在MySQL中，数据字典信息内容就包括表结构、数据库名或表名、字段的数据类型、视图、索引、表字段信息、存储过程、触发器等内容。MySQL INFORMATION_SCHEMA库提供了对数据局元数据、统计信息、以及有关MySQL server的访问信息（例如：数据库名或表名，字段的数据类型和访问权限等）。该库中保存的信息也可以称为MySQL的数据字典。<br>在MySQL8.0之前，MySQL的数据字典信息，并没有全部存放在系统数据库表中，部分数据库数据字典信息存放于文件中，其余的数据字典信息存放于数据字典库中（INFORMATION_SCHEMA,mysql,sys）。例如表结构信息存放在<code>.frm</code>文件中,数据库表字段信息存放于INFORMATION_SCHEMA下的COLUMNS表中。早期，5.6版本之前，MyISAM是MySQL的默认存储引擎，而作为MyISAM存储引擎，它是没有数据字典的。只有表结构信息记录在<code>.frm</code>文件中。MySQL5.6版本之后，将InnoDB存储引擎作为默认的存储引擎。在InnoDB存储引擎中，添加了一些数据字典文件用于存放数据字典元信息，例如：<code>.opt</code>文件，记录了每个库的一些基本信息，包括库的字符集等信息，<code>.TRN</code>，<code>.TRG</code>文件用于存放触发器的信息内容。</p>
+<h3 id="2-2、新版本数据字典的改进"><a href="#2-2、新版本数据字典的改进" class="headerlink" title="2.2、新版本数据字典的改进"></a>2.2、新版本数据字典的改进</h3><p>最新的MySQL 8.0 发布之后，对数据库数据字典方面做了较大的改进。</p>
+<ul>
+<li>首先是，将所有原先存放于数据字典文件中的信息，全部存放到数据库系统表中，即将之前版本的<code>.frm</code>,<code>.opt</code>,<code>.par</code>,<code>.TRN</code>,<code>.TRG</code>,<code>.isl</code>文件都移除了，不再通过文件的方式存储数据字典信息。</li>
+<li>其次是对INFORMATION_SCHEM，mysql，sys系统库中的存储引擎做了改进，原先使用MyISAM存储引擎的数据字典表都改为使用InnoDB存储引擎存放。从不支持事务的MyISAM存储引擎转变到支持事务的InnoDB存储引擎，为原子DDL的实现，提供了可能性。</li>
+</ul>
+<h2 id="3、新数据字典带来的影响"><a href="#3、新数据字典带来的影响" class="headerlink" title="3、新数据字典带来的影响"></a>3、新数据字典带来的影响</h2><h3 id="3-1、INFORMATION-SCHEMA性能提升"><a href="#3-1、INFORMATION-SCHEMA性能提升" class="headerlink" title="3.1、INFORMATION_SCHEMA性能提升"></a>3.1、INFORMATION_SCHEMA性能提升</h3><p>8.0中对数据字典进行改进之后，很大程度上提高了对INFORMATIONS_SCHEMA的查询性能，通过可以通过查表快速的获得想要查询的数据，原因是：</p>
+<ul>
+<li>数据库在查询INFORMATION_SCHEMA的表时，不再一定需要创建一张临时表，可以直接查询数据字典表。</li>
+<li>在之前版本中，数据字典信息不一定是存放于表中，所以在获取数据字典信息时候，不仅仅是查表操作。例如读取数据库表结构信息，底层其实是读取.frm文件来获得，是一个文件打开读取的操作。而在新版本中，数据字典信息都可以通过直接查表的方式获取，替代那些获取信息慢的方式。</li>
+<li>对存储引擎的改进之后，在查询INFORMATIONS_SCHEMA表时，如果表上有索引，优化器会合理的利用索引。</li>
+<li>对于INFORMATION_SCHEMA下的STATISTICS表和TABLES表中的信息，8.0中通过缓存的方式，以提高查询的性能。可以通过设置information_schema_stats_expiry参数设置缓存数据的过期时间，默认是86400秒。查询这两张表的数据的时候，首先是到缓存中进行查询，缓存中没有缓存数据，或者缓存数据过期了，查询会从存储引擎中获取最新的数据。如果需要获取最新的数据，可以通过设置information_schema_stats_expiry参数为0或者ANALYZE TABLE操作。</li>
+</ul>
+<h3 id="3-2、原子DDL"><a href="#3-2、原子DDL" class="headerlink" title="3.2、原子DDL"></a>3.2、原子DDL</h3><p>MySQL8.0开始支持原子DDL操作，一个原子DDL操作，具体的操作内容包括：数据字典更新，存储引擎层的操作，在binlog中记录DDL操作。并且这些操作都是原子性的，表示中间过程出现错误的时候，是可以完整回退的。这在之前版本的DDL操作中是不支持的。之前数据库版本中一直没有支持原子DDL的特性，是有原因的，因为在早期的数据库版本中，数据库元信息存放于元信息文件中、非事务性表中以及特定存储引擎的数据字典中。这些都无法保证DDL操作内容在一个事务当中，无法保证原子性。<br>具体的原子DDL，后续会有专门的文章。</p>
+<h3 id="3-3、innodb-read-only对所有存储引擎生效"><a href="#3-3、innodb-read-only对所有存储引擎生效" class="headerlink" title="3.3、innodb_read_only对所有存储引擎生效"></a>3.3、innodb_read_only对所有存储引擎生效</h3><p>在8.0之前版本中，innodb_read_only参数可以阻止对InnoDB存储引擎表的create和drop等更新操作。但是在MySQL8.0中，开启innodb_read_only参数阻止了所有存储引擎的这些操作。create或者drop表的操作都需要更新数据字典表，8.0中这个数据字典表都改为了InnoDB存储引擎，所以对于数据字典表的更新会失败，从而导致各存储引擎create和drop表失败。同样的像<code>ANALYZE TABLE</code>和<code>ALTER TABLE tbl_name ENGINE=engine_name</code>这种操作也会失败，因为这些操作都要去更新数据字典表。</p>
+<h3 id="3-4、mysqldump-mysqlpump导出的内容影响"><a href="#3-4、mysqldump-mysqlpump导出的内容影响" class="headerlink" title="3.4、mysqldump mysqlpump导出的内容影响"></a>3.4、mysqldump mysqlpump导出的内容影响</h3><p>MySQL8.0之后，在使用mysqldump和mysqlpump导出数据时候，与之前有了一些不同，主要是以下几点：</p>
+<ul>
+<li>之前版本的mysqldump和mysqlpump可以导出mysql系统库中的所有表的内容，8.0之后，只能导出mysql系统库中的非data dictionary table。（data dictionary table内容可以参照：<a href="https://dev.mysql.com/doc/refman/8.0/en/system-database.html#system-database-data-dictionary-tables）" target="_blank" rel="noopener">https://dev.mysql.com/doc/refman/8.0/en/system-database.html#system-database-data-dictionary-tables）</a></li>
+<li>之前版本当使用–all-databases参数导出数据的时候，不加–routines和–events选项也可以导出触发器、存储过程等信息，因为这些信息都存放于proc和event表中，导出所有表即可导出这些信息。但是在8.0中，proc表和event表都不再使用，并且定义触发器、存储过程的数据字典表不会被导出，所以在8.0中使用mysqldump、mysqlpump导出数据的时候，如果需要导出触发器、存储过程等内容，一定需要加上–routines和–events选项。</li>
+<li>之前版本中–routines选项导出的时候，备份账户需要有proc表的SELECT权限，在8.0中需要对所有表的SELECT权限</li>
+<li>之前版本中，导出触发器、存储过程可以同时导出触发器、存储过程的创建和修改的时间戳，8.0中不再支持。<h3 id="3-5、新数据字典的局限性"><a href="#3-5、新数据字典的局限性" class="headerlink" title="3.5、新数据字典的局限性"></a>3.5、新数据字典的局限性</h3>MySQL8.0数据字典的改进有很多方便的特性，例如带来了原子DDL，提升了INFORMATION_SCHEMA的查询性能等，但是它并不是完美的，新版数据字典还是存在一些局限性：</li>
+<li>通过手动mkdir的方式在数据目录下创建库目录，这种方式是不会被数据库所识别到。</li>
+<li>DDL操作会花费更长的时间，因为之前的DDL操作是直接对.frm文件进行更改操作，只要写一个文件，现在是需要更新数据字典表，代表着需要将数据写到存储引擎、read log、undo log中。<h2 id="4、总结"><a href="#4、总结" class="headerlink" title="4、总结"></a>4、总结</h2>目前已经正式GA的MySQL 8.0是令人很期待的一个版本，从数据字典方面的改进，到原子DDL，到数据库self tuning等等新特性，都让人为8.0感到激动。8.0中有许多新特性等待去尝试，去发现。</li>
+</ul>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+              <a href="/tags/数据字典/" rel="tag"># 数据字典</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/03/12/MySQL故障切换之应用无感知设计/" rel="prev" title="MySQL故障切换之应用无感知设计">
+      <i class="fa fa-chevron-left"></i> MySQL故障切换之应用无感知设计
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/05/14/MySQL 8.0 —— CATS事务调度算法的性能提升/" rel="next" title="MySQL 8.0 —— CATS事务调度算法的性能提升">
+      MySQL 8.0 —— CATS事务调度算法的性能提升 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1、简介"><span class="nav-number">1.</span> <span class="nav-text">1、简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2、数据字典"><span class="nav-number">2.</span> <span class="nav-text">2、数据字典</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1、新版本之前的数据字典"><span class="nav-number">2.1.</span> <span class="nav-text">2.1、新版本之前的数据字典</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2、新版本数据字典的改进"><span class="nav-number">2.2.</span> <span class="nav-text">2.2、新版本数据字典的改进</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3、新数据字典带来的影响"><span class="nav-number">3.</span> <span class="nav-text">3、新数据字典带来的影响</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1、INFORMATION-SCHEMA性能提升"><span class="nav-number">3.1.</span> <span class="nav-text">3.1、INFORMATION_SCHEMA性能提升</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2、原子DDL"><span class="nav-number">3.2.</span> <span class="nav-text">3.2、原子DDL</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3、innodb-read-only对所有存储引擎生效"><span class="nav-number">3.3.</span> <span class="nav-text">3.3、innodb_read_only对所有存储引擎生效</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4、mysqldump-mysqlpump导出的内容影响"><span class="nav-number">3.4.</span> <span class="nav-text">3.4、mysqldump mysqlpump导出的内容影响</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-5、新数据字典的局限性"><span class="nav-number">3.5.</span> <span class="nav-text">3.5、新数据字典的局限性</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4、总结"><span class="nav-number">4.</span> <span class="nav-text">4、总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

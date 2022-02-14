@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="1. 前言近期在给开发小伙伴解决问题的时候，收集了两个个人觉得比较有意思的问题给大家分享一下。一个是在执行ALTER TABLE ADD COLUMN语句时，报了Duplicate entry的错误；另一个是关于在MySQL中正确存取emoji表情的问题。 2. ALTER TABLE ADD COLUMN报Duplicate entry错误2.1 问题描述某日系统上线，接到开发小伙伴电话说在上线">
+<meta name="keywords" content="MySQL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL日常问题两则">
+<meta property="og:url" content="http://yoursite.com/2019/08/12/MySQL日常问题两则/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="1. 前言近期在给开发小伙伴解决问题的时候，收集了两个个人觉得比较有意思的问题给大家分享一下。一个是在执行ALTER TABLE ADD COLUMN语句时，报了Duplicate entry的错误；另一个是关于在MySQL中正确存取emoji表情的问题。 2. ALTER TABLE ADD COLUMN报Duplicate entry错误2.1 问题描述某日系统上线，接到开发小伙伴电话说在上线">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809095927.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809095941.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809095447.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809100059.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809104744.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809104942.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809212132.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809212449.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809212941.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809213245.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809214109.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809212449.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809214254.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809220506.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809213245.png">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL日常问题两则">
+<meta name="twitter:description" content="1. 前言近期在给开发小伙伴解决问题的时候，收集了两个个人觉得比较有意思的问题给大家分享一下。一个是在执行ALTER TABLE ADD COLUMN语句时，报了Duplicate entry的错误；另一个是关于在MySQL中正确存取emoji表情的问题。 2. ALTER TABLE ADD COLUMN报Duplicate entry错误2.1 问题描述某日系统上线，接到开发小伙伴电话说在上线">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809095927.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/08/12/MySQL日常问题两则/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL日常问题两则 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/08/12/MySQL日常问题两则/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL日常问题两则
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2019-08-12 11:08:13" itemprop="dateCreated datePublished" datetime="2019-08-12T11:08:13+00:00">2019-08-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="1-前言"><a href="#1-前言" class="headerlink" title="1. 前言"></a>1. 前言</h2><p>近期在给开发小伙伴解决问题的时候，收集了两个个人觉得比较有意思的问题给大家分享一下。一个是在执行ALTER TABLE ADD COLUMN语句时，报了Duplicate entry的错误；另一个是关于在MySQL中正确存取emoji表情的问题。</p>
+<h2 id="2-ALTER-TABLE-ADD-COLUMN报Duplicate-entry错误"><a href="#2-ALTER-TABLE-ADD-COLUMN报Duplicate-entry错误" class="headerlink" title="2. ALTER TABLE ADD COLUMN报Duplicate entry错误"></a>2. ALTER TABLE ADD COLUMN报Duplicate entry错误</h2><h3 id="2-1-问题描述"><a href="#2-1-问题描述" class="headerlink" title="2.1 问题描述"></a>2.1 问题描述</h3><p>某日系统上线，接到开发小伙伴电话说在上线时，执行一个增加字段的DDL语句脚本时，报错了，错误如下:<br><code>ERROR 1062 (23000) at line 1: Duplicate entry &#39;UR000021426347&#39; for key &#39;T_CAP_CUST_MIDDLE_INFO_UNIQ_INDEX&#39;</code><br>根据错误提示的条件去数据库中查询却只能查到一条记录，并没有重复记录。DDL脚本无法执行，影响后续上线步骤了。当时由于不在现场，了解到的信息只有：</p>
+<ol>
+<li>DDL语句脚本中只有两条DDL语句，且都是添加字段的语句 </li>
+<li>脚本正常运行只需要40-70秒，</li>
+<li>当时并不是停业窗口。</li>
+</ol>
+<p>考虑到数据库版本为5.6.34，添加字段并不会阻塞DML操作，让开发小伙伴再运行一次试试，结果这次执行成功了，并没有报冲突的错误。线上问题顺利解决，具体原因得线下分析了。虽说解决问题是主要矛盾，但是搞清楚问题原因有着更深层次的意义。</p>
+<h3 id="2-2-原因定位"><a href="#2-2-原因定位" class="headerlink" title="2.2 原因定位"></a>2.2 原因定位</h3><p>下面就是到了寻找问题原因的时候了，为什么同样的DDL语句脚本第一次执行的时候报了Duplicate entry错误，第二次却顺利运行了。其实问题原因很好找，打开Google，输入关键字<code>mysql alter table add column duplicate entry</code>，搜索结果中很多关键字完全匹配的链接，说明很多人遇到过相同问题。搜索结果中一眼就看到一个链接<a href="https://bugs.mysql.com/bug.php?id=76895" target="_blank" rel="noopener">MySQL Bugs:#76895:Adding new column OR Drop column causes duplicate PK error</a>，看到MySQL Bug就莫名兴奋。通过该Bug链接了解到该问题是Online DDL的一个限制问题，官方认为该问题是一种限制，并不是Bug，所以目前为止还没有得到解决。</p>
+<blockquote>
+<p>When running an online DDL operation, the thread that runs the ALTER TABLE statement applies an online log of DML operations that were run concurrently on the same table from other connection threads. When the DML operations are applied, it is possible to encounter a duplicate key entry error (ERROR 1062 (23000): Duplicate entry), even if the duplicate entry is only temporary and would be reverted by a later entry in the online log. This is similar to the idea of a foreign key constraint check in InnoDB in which constraints must hold during a transaction.</p>
+</blockquote>
+<p>解释一下就是当执行Oline DDL操作时，MySQL实际上是将DML缓存（该缓存大小由变量 innodb_online_alter_log_max_size控制，默认128M）起来，等DDL执行完成后再将缓存中的DML重新应用到表上。如果有别的线程执行了DML操作，在DDL完成后，应用DML时，可能会出现duplicate entry错误。</p>
+<h3 id="2-3-实验验证"><a href="#2-3-实验验证" class="headerlink" title="2.3 实验验证"></a>2.3 实验验证</h3><p>上面通过Google找到了理论上可能能解释问题的原因描述，但是还没有实际验证，所以接下来就是线下复现环节。先去找开发同事问了下线上报错的表只有一种操作<code>insert into ... on duplicate key...</code>，且报Duplicate entry的字段上有唯一索引。如果没有冲突的记录则插入，否则就更新。那么验证测试步骤也比较简单了，找一张测试表，执行ALTER TABLE ADD COLUMN操作，并同时执行insert into…on duplicate key…操作，观察DDL语句是否会有报错。</p>
+<h4 id="2-3-1-实验环境"><a href="#2-3-1-实验环境" class="headerlink" title="2.3.1 实验环境"></a>2.3.1 实验环境</h4><ul>
+<li>redhat-6.7/redhat-7.4</li>
+<li>MySQL-5.6.34/MySQL-5.7.22</li>
+</ul>
+<h4 id="2-3-2-操作步骤"><a href="#2-3-2-操作步骤" class="headerlink" title="2.3.2 操作步骤"></a>2.3.2 操作步骤</h4><ul>
+<li>准备测试环境</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809095927.png" height="50%" width="50%"></p>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809095941.png" height="50%" width="50%"></p>
+<p>col1字段的值与id字段的值是一致的，test表中共有1600W+条记录。</p>
+<ul>
+<li>执行DDL同时执行insert into … on duplicate key…操作</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>序号</th>
+<th>会话1</th>
+<th>会话2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>select * from test limit 10;<br><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809095447.png" height="600px" width="200px"></td>
+<td>-</td>
+</tr>
+<tr>
+<td>2</td>
+<td>-</td>
+<td>alter table test add column address varchar(50) default ‘HangZhou’;</td>
+</tr>
+<tr>
+<td>3</td>
+<td>insert into test (name,col1) values(‘san.zhang’,7) on duplicate key update col1=29;<br>ERROR 1062 (23000): Duplicate entry ‘29’ for key ‘col1’</td>
+<td>-</td>
+</tr>
+<tr>
+<td>4</td>
+<td>-</td>
+<td>DDL执行报错，检查发现DDL执行失败<br>ERROR 1062 (23000): Duplicate entry ‘7’ for key ‘col1’</td>
+</tr>
+<tr>
+<td>5</td>
+<td>查询test表中数据<br><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809100059.png" height="400px" width="600px"></td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<p>顺利的复现了线上的问题现象，那说明当时线上就是因为DML更新了相同的唯一属性字段键值导致DDL执行失败，报错。测试过程中想到insert into… on duplicate key…不行，那么replace into 会不会也一样导致问题呢，于是就同样对replace into语句进行了测试。</p>
+<ul>
+<li>执行DDL同时执行replace into操作</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>序号</th>
+<th>会话1</th>
+<th>会话2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>select * from test limit 10;<br><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809104744.png" height="600px" width="200px"></td>
+<td>-</td>
+</tr>
+<tr>
+<td>2</td>
+<td>-</td>
+<td>alter table test add column address varchar(50) default ‘HangZhou’;</td>
+</tr>
+<tr>
+<td>3</td>
+<td>replace into test(id,name,col1) values(1,’gang.shen’,13);<br>Query OK, 3 rows affected (0.00 sec)</td>
+<td>-</td>
+</tr>
+<tr>
+<td>4</td>
+<td>-</td>
+<td>DDL执行报错，检查发现DDL执行失败<br>ERROR 1062 (23000): Duplicate entry ‘13’ for key ‘col1’</td>
+</tr>
+<tr>
+<td>5</td>
+<td>select *  from test where col1=13;<br><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809104942.png" height="100px" width="600px"></td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>后续以同样方式测试了UPDATE、INSERT操作，实验证明都会影响DDL操作的正确执行，在5.7.22版本上也是一样的现象。这边出于篇幅考虑就不将测试过程给出了，感兴趣的读者可以自己实验一把，并且可以验证下在8.0版本中是否仍然存在该问题。</li>
+</ul>
+<h3 id="2-4-小结"><a href="#2-4-小结" class="headerlink" title="2.4 小结"></a>2.4 小结</h3><p>在这对这个问题做几点总结：</p>
+<ul>
+<li>问题原因：Oline DDL的原理简单一点理解就是将DML操作缓存起来，等到DDL执行完成后重新应用缓存中的DML语句，如果在Oline DDL执行过程中，DML操作产生了Duplicate entry错误，并不会直接影响DDL操作，而是在DDL执行完成最终应用DML时报错，导致DDL执行失败。关于Oline DDL执行步骤可以参考：<a href="https://yq.aliyun.com/articles/282290" target="_blank" rel="noopener">https://yq.aliyun.com/articles/282290</a>。</li>
+<li>在MySQL Bug网站上，官方人员回复该现象并不是Bug，而是一种限制。但是个人认为是可以做一些改善的，因为在测试insert into … on duplicate key…以及update和insert语句时，对于执行DML操作的客户端已经直接返回报错了，但是从现象上看MySQL仍然将报错的DML语句放到了Oline DDL的缓存中，如果直接将报错语句从缓存中去除则不会影响DDL的正常执行。这只是个人简单认为，深入的话需要可以通过代码去确认。</li>
+<li>Google是位好老师</li>
+</ul>
+<h2 id="3-MySQL存取emoji的正确姿势"><a href="#3-MySQL存取emoji的正确姿势" class="headerlink" title="3. MySQL存取emoji的正确姿势"></a>3. MySQL存取emoji的正确姿势</h2><h3 id="3-1-问题描述"><a href="#3-1-问题描述" class="headerlink" title="3.1 问题描述"></a>3.1 问题描述</h3><p>开发小伙伴在测试环境测试过程中，需要往MySQL数据库中插入emoji表情，但是发现一套测试环境可以插入成功，另一套测试环境不行，且插入成功的那套环境数据库将数据查询出来是<code>????</code>乱码。经过与开发确认后了解到以下几点信息：</p>
+<ul>
+<li>表中只有一个字段需要存放emoji表情，开发对该字段单独设置了utf8mb4字符集</li>
+<li>可以成功插入成功的测试环境数据库版本为5.6.34，无法插入的测试环境数据库版本为5.7.22</li>
+<li>应用连接代码中使用的是utf8字符集</li>
+</ul>
+<p>那其实需要解决的问题其实是两个问题：1、5.6版本下emoji存取乱码问题 2、5.7版本emoji无法插入的问题</p>
+<h3 id="3-2-实验验证"><a href="#3-2-实验验证" class="headerlink" title="3.2 实验验证"></a>3.2 实验验证</h3><h4 id="3-2-1-MySQL-5-6-emoji存取乱码问题"><a href="#3-2-1-MySQL-5-6-emoji存取乱码问题" class="headerlink" title="3.2.1 MySQL-5.6 emoji存取乱码问题"></a>3.2.1 MySQL-5.6 emoji存取乱码问题</h4><p>我们先来看5.6版本下emoji存储乱码的问题，理论上从数据库角度考虑，字段字符集已经设置为utf8mb4，应用使用的是utf8字符集连接，插入emoji需要utf8mb4字符集，多半是连接字符集设置的问题。大胆假设已经完成，接下来就是小心求证的过程。</p>
+<blockquote>
+<p>实验环境</p>
+<ul>
+<li>数据库版本：5.6.44</li>
+<li>sql_mode=’NO_ENGINE_SUBSTITUTION’</li>
+<li>default-character-set=utf8</li>
+</ul>
+</blockquote>
+<ul>
+<li>使用utf8字符集连接MySQL，并检查参数设置</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809212132.png" height="50%" width="50%"></p>
+<ul>
+<li>创建测试表</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809212449.png" height="50%" width="50%"></p>
+<ul>
+<li>插入emoji表情</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809212941.png" height="50%" width="50%"></p>
+<p>表情的确能插入数据库，但是insert时有两条warning记录提示是invalid的字符串，并且select查询出来的数据也是一样<code>????</code>乱码</p>
+<ul>
+<li>使用utf8mb4字符集插入emoji表情并查询</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809213245.png" height="50%" width="50%"><br>可以看到连接使用utf8mb4字符集插入、查询emoji表情都是正常的，插入时也没有warning提示，那说明emoji乱码的问题就是因为连接字符集设置不合理导致的。</p>
+<h4 id="3-2-2-MySQL-5-7-emoji无法插入的问题"><a href="#3-2-2-MySQL-5-7-emoji无法插入的问题" class="headerlink" title="3.2.2 MySQL-5.7 emoji无法插入的问题"></a>3.2.2 MySQL-5.7 emoji无法插入的问题</h4><p>定位了乱码的问题，再来看看emoji无法插入的问题。</p>
+<blockquote>
+<p>实验环境</p>
+<ul>
+<li>数据库版本：5.7.22</li>
+<li>sql_mode=’ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION’</li>
+<li>default-character-set=utf8</li>
+</ul>
+</blockquote>
+<ul>
+<li>使用utf8字符集连接MySQL，并检查参数设置</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809214109.png" height="50%" width="50%"></p>
+<ul>
+<li>创建测试表</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809212449.png" height="50%" width="50%"></p>
+<ul>
+<li>插入emoji表情</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809214254.png" height="50%" width="50%"></p>
+<p>插入的时候直接报错了，同样的字符集，同样的语句，5.6版本下emoji就能插入，5.7就直接报错了。5.6-&gt;5.7数据库版本问题，如果踩坑比较多的话，还是比较容易联想到是不是sql_mode参数的问题，因为5.7中sql_mode参数默认值多了很多项，对语句的限制加强了很多。</p>
+<ul>
+<li>查看sql_mode参数默认值</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; show variables like &apos;%sql_mode%&apos;\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">Variable_name: sql_mode</span><br><span class="line">        Value: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>查看官方文档关于各个sql_mode选项的值，找到了怀疑对象STRICT_TRANS_TABLES，表示开启严格模式，严格模式下如果插入的数据不在范围之类会报错中断语句。</p>
+<ul>
+<li>修改sql_mode参数值，再次插入emoji表情测试</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; set session sql_mode=&apos;ONLY_FULL_GROUP_BY,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION&apos;;</span><br><span class="line">Query OK, 0 rows affected, 1 warning (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809220506.png" height="50%" width="50%"></p>
+<p>可以看到修改sql_mode值后，现象与5.6版本下一致</p>
+<ul>
+<li>使用utf8mb4字符集插入emoji表情并查询</li>
+</ul>
+<p><img src="https://raw.githubusercontent.com/Win-Man/pic-storage/master/img/20190809213245.png" height="50%" width="50%"></p>
+<h3 id="3-3-小结"><a href="#3-3-小结" class="headerlink" title="3.3 小结"></a>3.3 小结</h3><p>在此对emoji问题做一下小结：</p>
+<ul>
+<li>MySQL中存储emoji不仅需要将表结构中字段字符集设置为utf8mb4，还需要考虑连接字符集的问题</li>
+<li>建议数据库使用5.7.22及以上版本，并且sql_mode开启严格模式，这样当数据出现异常可以及时发现</li>
+<li>在sql_mode开启严格模式的情况下，应用端连接数据库也需要调整为utf8mb4字符集才可以正常插入emoji表情</li>
+<li>建议将默认字符集设置为utf8mb4，做到库、表、字段字符集都统一，utf8mb4是utf8的超集，能兼容更多的字符，而且在MySQL-8.0中已经将utf8mb4设置为了默认的字符集。</li>
+</ul>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/03/09/MySQL8.0之跳跃范围扫描/" rel="prev" title="MySQL8.0之跳跃范围扫描">
+      <i class="fa fa-chevron-left"></i> MySQL8.0之跳跃范围扫描
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/11/17/MySQL Binlog(一)——MySQL复制原理基础/" rel="next" title="MySQL Binlog(一)——MySQL复制原理基础">
+      MySQL Binlog(一)——MySQL复制原理基础 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-前言"><span class="nav-number">1.</span> <span class="nav-text">1. 前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-ALTER-TABLE-ADD-COLUMN报Duplicate-entry错误"><span class="nav-number">2.</span> <span class="nav-text">2. ALTER TABLE ADD COLUMN报Duplicate entry错误</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-问题描述"><span class="nav-number">2.1.</span> <span class="nav-text">2.1 问题描述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-原因定位"><span class="nav-number">2.2.</span> <span class="nav-text">2.2 原因定位</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-实验验证"><span class="nav-number">2.3.</span> <span class="nav-text">2.3 实验验证</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-1-实验环境"><span class="nav-number">2.3.1.</span> <span class="nav-text">2.3.1 实验环境</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-3-2-操作步骤"><span class="nav-number">2.3.2.</span> <span class="nav-text">2.3.2 操作步骤</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-小结"><span class="nav-number">2.4.</span> <span class="nav-text">2.4 小结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-MySQL存取emoji的正确姿势"><span class="nav-number">3.</span> <span class="nav-text">3. MySQL存取emoji的正确姿势</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-问题描述"><span class="nav-number">3.1.</span> <span class="nav-text">3.1 问题描述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-实验验证"><span class="nav-number">3.2.</span> <span class="nav-text">3.2 实验验证</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-1-MySQL-5-6-emoji存取乱码问题"><span class="nav-number">3.2.1.</span> <span class="nav-text">3.2.1 MySQL-5.6 emoji存取乱码问题</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-2-2-MySQL-5-7-emoji无法插入的问题"><span class="nav-number">3.2.2.</span> <span class="nav-text">3.2.2 MySQL-5.7 emoji无法插入的问题</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-小结"><span class="nav-number">3.3.</span> <span class="nav-text">3.3 小结</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

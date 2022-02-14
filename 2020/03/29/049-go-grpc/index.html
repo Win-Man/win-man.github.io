@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Go 实现 gRPC 服务介绍最近学习了一下 gRPC 在 Go 中的实现，做一些记录。 gRPC 是什么讲 gRPC 之前，可以先讲一下 RPC(Remote Procedure Call) 远程过程调用，它能让客户端直接类似于调用本地方法一样调用服务端的方法。gRPC 是 Google 开源的一款高性能 RPC 框架。 gRPC 中主要有四种请求/响应模式：  普通 RPC 服务端流式 RPC">
+<meta name="keywords" content="Go,gRPC">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Go 实现 gRPC 服务">
+<meta property="og:url" content="http://yoursite.com/2020/03/29/049-go-grpc/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="Go 实现 gRPC 服务介绍最近学习了一下 gRPC 在 Go 中的实现，做一些记录。 gRPC 是什么讲 gRPC 之前，可以先讲一下 RPC(Remote Procedure Call) 远程过程调用，它能让客户端直接类似于调用本地方法一样调用服务端的方法。gRPC 是 Google 开源的一款高性能 RPC 框架。 gRPC 中主要有四种请求/响应模式：  普通 RPC 服务端流式 RPC">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.106Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Go 实现 gRPC 服务">
+<meta name="twitter:description" content="Go 实现 gRPC 服务介绍最近学习了一下 gRPC 在 Go 中的实现，做一些记录。 gRPC 是什么讲 gRPC 之前，可以先讲一下 RPC(Remote Procedure Call) 远程过程调用，它能让客户端直接类似于调用本地方法一样调用服务端的方法。gRPC 是 Google 开源的一款高性能 RPC 框架。 gRPC 中主要有四种请求/响应模式：  普通 RPC 服务端流式 RPC">
+
+<link rel="canonical" href="http://yoursite.com/2020/03/29/049-go-grpc/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>Go 实现 gRPC 服务 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/03/29/049-go-grpc/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Go 实现 gRPC 服务
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-03-29 16:50:13" itemprop="dateCreated datePublished" datetime="2020-03-29T16:50:13+00:00">2020-03-29</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go/" itemprop="url" rel="index"><span itemprop="name">Go</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Go-实现-gRPC-服务"><a href="#Go-实现-gRPC-服务" class="headerlink" title="Go 实现 gRPC 服务"></a>Go 实现 gRPC 服务</h1><h2 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h2><p>最近学习了一下 gRPC 在 Go 中的实现，做一些记录。</p>
+<h3 id="gRPC-是什么"><a href="#gRPC-是什么" class="headerlink" title="gRPC 是什么"></a>gRPC 是什么</h3><p>讲 gRPC 之前，可以先讲一下 RPC(Remote Procedure Call) 远程过程调用，它能让客户端直接类似于调用本地方法一样调用服务端的方法。gRPC 是 Google 开源的一款高性能 RPC 框架。</p>
+<p>gRPC 中主要有四种请求/响应模式：</p>
+<ul>
+<li>普通 RPC</li>
+<li>服务端流式 RPC</li>
+<li>客户端流式 RPC</li>
+<li>服务端/客户端双向流式 RPC</li>
+</ul>
+<h3 id="gRPC-好处"><a href="#gRPC-好处" class="headerlink" title="gRPC 好处"></a>gRPC 好处</h3><p>RPC 一般是建立在 TCP 或者 HTTP 网络连接之上的，是一个框架，所以对于开发者而言，如果使用 RPC 去实现服务端与客户端的通信，基本可以不考虑网络协议、连接等内容，专注与处理逻辑。</p>
+<p>使用 gRPC 的话，可以将我们的服务定义在 .proto 文件中，然后在任何一种支持 gRPC 的语言中实现客户端和服务端，这可以让服务端和客户端运行在不同的环境中，另外使用 gRPC 还有其他的好处：高效序列化与反序列化、简单的 IDL 语言、方便接口更新</p>
+<h2 id="基础使用"><a href="#基础使用" class="headerlink" title="基础使用"></a>基础使用</h2><p>已官方的 helloworld 作为例子进行讲解，<a href="https://github.com/grpc/grpc-go/tree/master/examples/helloworld" target="_blank" rel="noopener">示例</a></p>
+<h3 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h3><ul>
+<li>Mac 安装 protoc 编译器</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ brew install protobuf</span><br></pre></td></tr></table></figure>
+<ul>
+<li>安装 protoc 编译器插件</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ go get -u github.com/golang/protobuf/protoc-gen-go</span><br></pre></td></tr></table></figure>
+<h3 id="定义服务"><a href="#定义服务" class="headerlink" title="定义服务"></a>定义服务</h3><p>gRPC 是通过 Protocol Buffers 去定义 gRPC 相关的 service 服务以及请求和响应相关的类型，如果对 Protocol Buffer 不熟悉的，其实也没什么关系，直接看 protoc 文件也是比较容易看懂的。如果对 Protocol Buffer 想深入了解的 ，可以参考这个链接:  <a href="https://developers.google.com/protocol-buffers/docs/overview" target="_blank" rel="noopener">Protocol Buffers</a></p>
+<p>创建 helloworld.proto 文件，并填写以下内容</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">syntax = &quot;proto3&quot;;</span><br><span class="line">package protos;</span><br><span class="line"></span><br><span class="line">// The greeting service definition.</span><br><span class="line">service Greeter &#123;</span><br><span class="line">	// Sends a greeting</span><br><span class="line">	rpc SayHello (HelloRequest) returns (HelloReply) &#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">// The request message containing the user&apos;s name.</span><br><span class="line">message HelloRequest &#123;</span><br><span class="line">	string name = 1;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// The response message containing the greetings</span><br><span class="line">message HelloReply &#123;</span><br><span class="line">	string message = 1;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>来解释一下上面的代码：</p>
+<ul>
+<li>第一行 <code>syntax = &quot;proto3&quot;</code> 表示目前使用的是 proto3 的语法</li>
+<li>通过 service 关键字定义了一个 Greeter 服务，且这个服务目前只有 SayHello 一个方法，SayHello 这个方法会接收一个 HelloRequest 类型的消息，并返回一个 HelloReply 类型的消息</li>
+<li>通过 message 关键字定义了 HelloRequest 类型消息的结构是什么样的，上述代码中，HelloRequest 消息结构只有一个字段，是 string 类型</li>
+<li>通过 message 关键字定义了 HelloReply 类型消息的结构是什么样的，上述代码中，HelloReply 消息结构只有一个字段，是 string 类型</li>
+<li>定义消息结构字段的时候，需要指定字段的字段编号，比如 <code>string name = 1</code> 中，1 就是字段编号，这个字段编号是一个唯一的数字，作用是在二进制消息体中表示字段用的</li>
+<li>定义消息结构字段时，需要制定更多数据类型的话，可以参考链接：<a href="https://developers.google.com/protocol-buffers/docs/proto3" target="_blank" rel="noopener">Language Guide (proto3)</a></li>
+</ul>
+<p>在 proto 文件中完成定义 gRPC 的服务方法和消息之后，我们就可以来生成 gRPC 通信中服务端与客户端的接口了，这个时候就需要我们之前安装的 protoc 以及 protoc-gen-go 工具了</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ protoc --go_out=plugins=grpc:. helloworld.proto</span><br><span class="line"></span><br><span class="line">--go_out 表示指定最终生成文件的输出路径，. 表示生成在当前路径下</span><br><span class="line"></span><br><span class="line">## 注意这边如果使用 protoc --go_out=grpc:. hellororld.proto 命令生成的结果和指定了 plugins 生成的结果有不同，需要加上 plugins 去生成</span><br></pre></td></tr></table></figure>
+<p>命令执行完成之后，会生成 helloworld.pd.go，具体的内容因为篇幅原因，不完全展示了，可以参考：<a href="https://github.com/grpc/grpc-go/blob/master/examples/helloworld/helloworld/helloworld.pb.go" target="_blank" rel="noopener">helloworld.pd.go</a></p>
+<p>会根据 proto 文件中定义的服务方法和消息生成对应的代码，比如：</p>
+<ul>
+<li>是消息的话会对应生成<ul>
+<li>对应的 struct 结构体</li>
+<li>Reset()/String()/ProtoMessage()/Descriptor()/XXX_Unmarshal()/XXX_Marshal()/XXX_Merge()/XXX_Merge()/XXX_DiscardUnknown() 方法</li>
+<li>消息中定义字段的 get 方法</li>
+</ul>
+</li>
+<li>是服务的话会对应生成<ul>
+<li>生成服务对应的 server 以及 client 接口</li>
+<li>接口对应的方法</li>
+</ul>
+</li>
+</ul>
+<h3 id="编写服务端和客户端代码"><a href="#编写服务端和客户端代码" class="headerlink" title="编写服务端和客户端代码"></a>编写服务端和客户端代码</h3><p>gRPC 服务方法和消息定义完成，对应的服务端和客户端接口也定义完成之后，就需要来写服务端和客户端的具体实现代码了</p>
+<h4 id="服务端代码"><a href="#服务端代码" class="headerlink" title="服务端代码"></a>服务端代码</h4><p>这部分代码也是 grpc-go 官方 helloworld example 例子中的代码，借这个简单的代码理解一下服务端代码的编写</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"context"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"net"</span></span><br><span class="line">	pb <span class="string">"github.com/Win-Man/sg-server/protos"</span></span><br><span class="line">	<span class="string">"google.golang.org/grpc"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	port = <span class="string">":50051"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// server is used to implement helloworld.GreeterServer.</span></span><br><span class="line"><span class="keyword">type</span> server <span class="keyword">struct</span> &#123;</span><br><span class="line">	pb.UnimplementedGreeterServer</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// SayHello implements helloworld.GreeterServer</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span> <span class="title">SayHello</span><span class="params">(ctx context.Context, in *pb.HelloRequest)</span> <span class="params">(*pb.HelloReply, error)</span></span> &#123;</span><br><span class="line">	log.Printf(<span class="string">"Received: %v"</span>, in.GetName())</span><br><span class="line">	<span class="keyword">return</span> &amp;pb.HelloReply&#123;Message: <span class="string">"Hello "</span> + in.GetName()&#125;, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	lis, err := net.Listen(<span class="string">"tcp"</span>, port)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Fatalf(<span class="string">"failed to listen: %v"</span>, err)</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 创建一个 gRPC 服务端实例</span></span><br><span class="line">	s := grpc.NewServer()</span><br><span class="line">	<span class="comment">// 注册</span></span><br><span class="line">	pb.RegisterGreeterServer(s, &amp;server&#123;&#125;)</span><br><span class="line">	<span class="keyword">if</span> err := s.Serve(lis); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Fatalf(<span class="string">"failed to serve: %v"</span>, err)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>解释一下上面的代码</p>
+<ul>
+<li>首先定义了一个 server 的结构体，这个没有指定字段，直接继承了生成的 helloworld.pb.go 中定义的 pb.UnimplementedGreeterServer 结构体</li>
+<li>实现了 server 结构体的 SayHello 方法，SayHello 方法接受两个参数（ctx context.Context,in <em>pb.HelloRequest）返回两个参数(</em>pb.HelloReply,error),HelloRequest 和 HelloReply 其实就是 proto 中定义的消息对象，SayHello 方法的具体实现就看具体需求了，在例子中的话，就是获取了发送过来的请求中的 name 字段，将获取到的 name 值拼接上 Hello 以 Message 返回给客户端</li>
+<li>在 main 函数中定义了服务端的启动和监听过程</li>
+</ul>
+<h4 id="客户端代码"><a href="#客户端代码" class="headerlink" title="客户端代码"></a>客户端代码</h4><p>这部分代码也是 grpc-go 官方 helloworld example 例子中的代码，借这个简单的代码理解一下客户端代码的编写</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"context"</span></span><br><span class="line">	<span class="string">"log"</span></span><br><span class="line">	<span class="string">"os"</span></span><br><span class="line">	<span class="string">"time"</span></span><br><span class="line">	pb <span class="string">"github.com/Win-Man/sg-server/protos"</span></span><br><span class="line">	<span class="string">"google.golang.org/grpc"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	address = <span class="string">"localhost:50051"</span></span><br><span class="line">	defaultName = <span class="string">"sg"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="comment">// 建立连接</span></span><br><span class="line">	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Fatalf(<span class="string">"did not connect: %v"</span>, err)</span><br><span class="line"> 	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">defer</span> conn.Close()</span><br><span class="line">	c := pb.NewGreeterClient(conn)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Contact the server and print out its response.</span></span><br><span class="line">	<span class="comment">// 获取命令行中传入的第一个参数作为 name 值，否则name就使用默认值</span></span><br><span class="line">	name := defaultName</span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(os.Args) &gt; <span class="number">1</span> &#123;</span><br><span class="line">		name = os.Args[<span class="number">1</span>]</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 设置超时时间</span></span><br><span class="line">	ctx, cancel := context.WithTimeout(context.Background(), time.Second)</span><br><span class="line">	<span class="keyword">defer</span> cancel()</span><br><span class="line">	r, err := c.SayHello(ctx, &amp;pb.HelloRequest&#123;Name: name&#125;)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Fatalf(<span class="string">"could not greet: %v"</span>, err)</span><br><span class="line">	&#125;</span><br><span class="line">	log.Printf(<span class="string">"Greeting: %s"</span>, r.GetMessage())</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>解释一下上面的代码：</p>
+<ul>
+<li>所有的逻辑都是在 main 函数中</li>
+<li><code>conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())</code> 这个是在建立客户端与服务端之间的 grpc 连接</li>
+<li><code>c := pb.NewGreeterClient(conn)</code> 通过连接初始化客户端</li>
+<li><code>r, err := c.SayHello(ctx, &amp;pb.HelloRequest{Name: name})</code> 客户端通过调用 gRPC 方法与服务端通信，就收服务端返回的信息</li>
+</ul>
+<h3 id="运行演示"><a href="#运行演示" class="headerlink" title="运行演示"></a>运行演示</h3><ul>
+<li>运行服务端代码</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ go run server.go</span><br><span class="line">2020/03/29 00:19:48 Received: sg</span><br><span class="line">2020/03/29 00:22:11 Received: hhhh</span><br></pre></td></tr></table></figure>
+<ul>
+<li>运行客户端代码</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ go run client.go</span><br><span class="line">2020/03/29 00:19:48 Greeting: Hello sg</span><br><span class="line"></span><br><span class="line">$ go run client.go hhhh</span><br><span class="line">2020/03/29 00:22:11 Greeting: Hello hhhh</span><br></pre></td></tr></table></figure>
+<p>客户端成功通过 gRPC 调用了服务端。</p>
+<h2 id="进阶使用"><a href="#进阶使用" class="headerlink" title="进阶使用"></a>进阶使用</h2><p>简单使用中已经介绍了简单 RPC 的使用方式，在这一节中，会补充讲解 gRPC 其他几种请求/响应模式，标准步骤都是：</p>
+<ol>
+<li>在 .proto 文件中定义 RPC 服务方法和消息</li>
+<li>根据 .proto 文件生成 pb.go 文件</li>
+<li>实现服务端代码</li>
+<li>实现客户端代码</li>
+</ol>
+<h3 id="服务端流式-RPC"><a href="#服务端流式-RPC" class="headerlink" title="服务端流式 RPC"></a>服务端流式 RPC</h3><p>服务端流式 RPC 顾名思义就是服务端会按照多次返回响应，直到服务端认为响应发送完毕，会告诉客户端响应应发送完毕</p>
+<ul>
+<li>首先在 .proto 文件中定义服务端流式 RPC 的服务方法</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">service Greeter &#123;</span><br><span class="line">......</span><br><span class="line">	rpc TellMeSomething(HelloRequest) returns (stream Something)&#123;&#125;</span><br><span class="line">......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// The request message containing the user's name.</span></span><br><span class="line">message HelloRequest &#123;</span><br><span class="line">	<span class="keyword">string</span> name = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">......</span><br><span class="line">message Something&#123;</span><br><span class="line">	<span class="keyword">int64</span> lineCode = <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">string</span> line = <span class="number">2</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在原先定义的 Greeter 服务的基础上添加了一个 TellMeSomething 的 RPC 方法，这个 RPC 方法接收的是请求结构是 HelloRequest 类型，返回的结构是 Something 类型，且用了 stream 定义，表示返回结构是一个流，Something 类型包含一个 int64 类型的 lineCode 字段和以一个 string 类型的 line 字段。</p>
+<ul>
+<li>根据 .proto 文件生成 pb.go 文件，因为是自动生成的，这边就不展示完全的 pb.go 文件内容</li>
+<li>编写服务端代码，在服务端实现 TellMeSomething 方法</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span><span class="title">TellMeSomething</span><span class="params">(in *pb.HelloRequest, stream pb.Greeter_TellMeSomethingServer)</span> <span class="title">error</span></span>&#123;</span><br><span class="line">	log.Printf(<span class="string">"Received ServerStream request from: %v"</span>, in.GetName())</span><br><span class="line">	<span class="comment">// 获取客户端发送的请求内容</span></span><br><span class="line">	hellostr := fmt.Sprintf(<span class="string">"Hello,%s"</span>,in.GetName())</span><br><span class="line">	something := []<span class="keyword">string</span>&#123;hellostr,<span class="string">"ServerLine1"</span>,<span class="string">"ServerLine2"</span>,<span class="string">"ServerLine3"</span>&#125;</span><br><span class="line">	<span class="keyword">for</span> i,v := <span class="keyword">range</span>(something)&#123;</span><br><span class="line">		<span class="keyword">if</span> err := stream.Send(&amp;pb.Something&#123;LineCode:<span class="keyword">int64</span>(i),Line:v&#125;);err != <span class="literal">nil</span>&#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>TellMeSomething 方法接受两个参数，一个是 *pb.HelloRequest 类型的参数，表示客户端发送的请求，另一个是 pb.Greeter_TellMeSomethingServer 类型的参数，这个参数其实就是服务端返回给客户端的流对象接口，生成的 .pb.go 文件中已经帮我们定义好了这个接口，包含一个 Send() 方法，用于发送响应给客户端，还有就是继承成 grpc.ServerStream 的流对象</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Greeter_TellMeSomethingServer <span class="keyword">interface</span> &#123;</span><br><span class="line">	Send(*Something) error</span><br><span class="line">	grpc.ServerStream</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在服务端通过  pb.Greeter_TellMeSomethingServer 对象的 Send() 方法给客户端发送响应，如果发送所有响应结束，则通过 return nil 的方式通知客户端响应发送结束，客户端会接收到 io.EOF 信号知道服务端已经发送完毕。如果发送中间过程有错误，则通过 return err 的方式将对应的错误通知给客户端</p>
+<ul>
+<li>编写客户端代码，在客户端调用 TellMeSomethinng 方法</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="comment">// Set up a connection to the server.</span></span><br><span class="line">	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Fatalf(<span class="string">"did not connect: %v"</span>, err)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">defer</span> conn.Close()</span><br><span class="line">	c := pb.NewGreeterClient(conn)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Contact the server and print out its response.</span></span><br><span class="line">	name := defaultName</span><br><span class="line">	clientFunc := <span class="string">"Default"</span></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(os.Args) == <span class="number">3</span> &#123;</span><br><span class="line">		name = os.Args[<span class="number">1</span>]</span><br><span class="line">		clientFunc = os.Args[<span class="number">2</span>]</span><br><span class="line">	&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">		log.Fatal(<span class="string">"Please input 2 arguments"</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	ctx, cancel := context.WithTimeout(context.Background(), time.Second)</span><br><span class="line">	<span class="keyword">defer</span> cancel()</span><br><span class="line">	<span class="keyword">switch</span> clientFunc &#123;</span><br><span class="line">	......</span><br><span class="line">	<span class="keyword">case</span> <span class="string">"ServerStream"</span>:</span><br><span class="line">		stream,err := c.TellMeSomething(ctx,&amp;pb.HelloRequest&#123;Name:name&#125;)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span>&#123;</span><br><span class="line">			log.Fatalf(<span class="string">"TellMeSomething error: %v "</span>,err)</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">for</span> &#123;</span><br><span class="line">			something,err := stream.Recv()</span><br><span class="line">			<span class="comment">// 服务端信息发送完成，退出</span></span><br><span class="line">			<span class="keyword">if</span> err == io.EOF&#123;</span><br><span class="line">				<span class="keyword">break</span></span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span>&#123;</span><br><span class="line">			log.Fatalf(<span class="string">"TellMeSomething stream error:%v"</span>,err)</span><br><span class="line">			&#125;</span><br><span class="line">		log.Printf(<span class="string">"Recevie from server:&#123;LineCode:%v Line:%s&#125;\n"</span>,something.GetLineCode(),something.GetLine())</span><br><span class="line">		&#125;</span><br><span class="line">......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>客户端调用 TellMeSomething 方法，发送了一个 HelloRequest 类型的请求，获得一个 stream 返回对象，通过调用 Recv() 方法客户端接收服务端发送的一次次响应内容</p>
+<h3 id="客户端流式-RPC"><a href="#客户端流式-RPC" class="headerlink" title="客户端流式 RPC"></a>客户端流式 RPC</h3><p>客户端流式 RPC 就是客户端不断发送请求，直到发送完毕之后通知服务端请求发送完毕</p>
+<ul>
+<li>首先在 .proto 文件中定义服务端流式 RPC 的服务方法</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">service Greeter &#123;</span><br><span class="line">......</span><br><span class="line">	rpc TellYouSomething(stream Something) returns(HelloReply)&#123;&#125;</span><br><span class="line">......</span><br><span class="line">&#125;</span><br><span class="line">......</span><br><span class="line"><span class="comment">// The response message containing the greetings</span></span><br><span class="line">message HelloReply &#123;</span><br><span class="line">	<span class="keyword">string</span> message = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">message Something&#123;</span><br><span class="line">	<span class="keyword">int64</span> lineCode = <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">string</span> line = <span class="number">2</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在原先定义的 Greeter 服务的基础上添加了一个TellYouSomething 的 RPC 方法，这个 RPC 方法接收的是请求结构是 Something 类型，且用了 stream 定义，表示接受的请求是一个流，Something 类型包含一个 int64 类型的 lineCode 字段和以一个 string 类型的 line 字段，服务端返回给客户端一个 HelloReply 类型的响应</p>
+<ul>
+<li>根据 .proto 文件生成 pb.go 文件，因为是自动生成的，这边就不展示完全的 pb.go 文件内容</li>
+<li>编写服务端代码，在服务端实现 TellYouSomething 方法</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span><span class="title">TellYouSomething</span><span class="params">(stream pb.Greeter_TellYouSomethingServer)</span> <span class="title">error</span></span>&#123;</span><br><span class="line">	log.Printf(<span class="string">"Recevied ClientStream request"</span>)</span><br><span class="line">	messgeCount := <span class="number">0</span></span><br><span class="line">	length := <span class="number">0</span></span><br><span class="line">	<span class="keyword">for</span> &#123;</span><br><span class="line">		something,err := stream.Recv()</span><br><span class="line">		<span class="comment">// 接收到客户端所有请求，返回响应结果</span></span><br><span class="line">		<span class="keyword">if</span> err == io.EOF&#123;</span><br><span class="line">			<span class="keyword">return</span> stream.SendAndClose(&amp;pb.HelloReply&#123;Message:fmt.Sprintf(<span class="string">"It's over.\nReceived %v times. Length:%v"</span>,messgeCount,length)&#125;)</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span>&#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line">		messgeCount ++</span><br><span class="line">		length += <span class="built_in">len</span>(something.GetLine())</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个与服务端流式 RPC 中客户端的代码比较类似，服务端通过调用 stream 的 Recv() 方法获取客户端发送的请求，直到接受到 io.EOF 信号表示已经接收到全部客户端的请求，可以返回响应了，如果中间接收请求出错，则将错误直接返回给客户端</p>
+<ul>
+<li>编写客户端代码，在客户端调用 TellYouSomething 方法</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="comment">// Set up a connection to the server.</span></span><br><span class="line">	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Fatalf(<span class="string">"did not connect: %v"</span>, err)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">defer</span> conn.Close()</span><br><span class="line">	c := pb.NewGreeterClient(conn)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Contact the server and print out its response.</span></span><br><span class="line">	name := defaultName</span><br><span class="line">	clientFunc := <span class="string">"Default"</span></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(os.Args) == <span class="number">3</span> &#123;</span><br><span class="line">		name = os.Args[<span class="number">1</span>]</span><br><span class="line">		clientFunc = os.Args[<span class="number">2</span>]</span><br><span class="line">	&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">		log.Fatal(<span class="string">"Please input 2 arguments"</span>)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	ctx, cancel := context.WithTimeout(context.Background(), time.Second)</span><br><span class="line">	<span class="keyword">defer</span> cancel()</span><br><span class="line">	<span class="keyword">switch</span> clientFunc &#123;</span><br><span class="line">	......</span><br><span class="line">	<span class="keyword">case</span> <span class="string">"ClientStream"</span>:</span><br><span class="line">		stream,err := c.TellYouSomething(ctx)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span>&#123;</span><br><span class="line">			log.Fatalf(<span class="string">"TellYouSomething err :%v"</span>,err)</span><br><span class="line">		&#125;</span><br><span class="line">		clientStr := []<span class="keyword">string</span>&#123;<span class="string">"ClientLine1"</span>,<span class="string">"ClientLine2"</span>&#125;</span><br><span class="line">		<span class="keyword">for</span> i,v := <span class="keyword">range</span>(clientStr)&#123;</span><br><span class="line">			<span class="keyword">if</span> err := stream.Send(&amp;pb.Something&#123;LineCode:<span class="keyword">int64</span>(i),Line:v&#125;);err != <span class="literal">nil</span>&#123;</span><br><span class="line">				log.Fatalf(<span class="string">"TellYouSomething stream error:%v"</span>,err)</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		rep,err := stream.CloseAndRecv()</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span>&#123;</span><br><span class="line">			log.Fatalf(<span class="string">"CloseAndRecd error:%v"</span>,err)</span><br><span class="line">		&#125;</span><br><span class="line">		log.Printf(<span class="string">"Recive from server:%s"</span>,rep.GetMessage())</span><br><span class="line">	......	</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>与服务端流式 RPC 中服务端的代码类似，通过调用 stream 的 Send() 方法给客户端发送请求，等所有请求发送完毕通过调用 CloseAndRevc() 方法通知服务端请求发送完毕，并接收服务端的响应。</p>
+<h3 id="服务端-客户端双向流式-RPC"><a href="#服务端-客户端双向流式-RPC" class="headerlink" title="服务端/客户端双向流式 RPC"></a>服务端/客户端双向流式 RPC</h3><p>服务端/客户端双向流式 RPC 即客户端和服务端都是流式方式发送请求的</p>
+<ul>
+<li>首先在 .proto 文件中定义服务端流式 RPC 的服务方法</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">service Greeter &#123;</span><br><span class="line">......</span><br><span class="line">	rpc TalkWithMe(stream Something) returns(stream Something)&#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">......</span><br><span class="line">message Something&#123;</span><br><span class="line">	<span class="keyword">int64</span> lineCode = <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">string</span> line = <span class="number">2</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在原先定义的 Greeter 服务的基础上添加了一个TalkWithMe的 RPC 方法，这个 RPC 方法接收的是请求结构是 Something 类型，且用了 stream 定义，表示接受的请求是一个流，Something 类型包含一个 int64 类型的 lineCode 字段和以一个 string 类型的 line 字段，服务端返回给客户端的也是 Something 类型的 stream 流。</p>
+<ul>
+<li>根据 .proto 文件生成 pb.go 文件，因为是自动生成的，这边就不展示完全的 pb.go 文件内容</li>
+<li>编写服务端代码，在服务端实现 TalkWithMe 方法</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span><span class="title">TalkWithMe</span><span class="params">(stream pb.Greeter_TalkWithMeServer)</span> <span class="title">error</span></span>&#123;</span><br><span class="line">	log.Printf(<span class="string">"Recevied Stream request"</span>)</span><br><span class="line">	messageCount := <span class="number">0</span></span><br><span class="line">	<span class="keyword">for</span> &#123;</span><br><span class="line">		something ,err := stream.Recv()</span><br><span class="line">		<span class="keyword">if</span> err == io.EOF&#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">		messageCount ++</span><br><span class="line">		length := <span class="built_in">len</span>(something.GetLine())</span><br><span class="line">		line := fmt.Sprintf(<span class="string">"Got %s,Length:%v"</span>,something.GetLine(),length)</span><br><span class="line">		<span class="keyword">if</span> err := stream.Send(&amp;pb.Something&#123;LineCode: <span class="keyword">int64</span>(messageCount),Line:line&#125;);err != <span class="literal">nil</span>&#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>服务端代码与客户端流式 RPC 中服务端代码几乎是一样的，所以就不作解释</p>
+<ul>
+<li>编写客户端代码，调用 TalkWithMe 方法</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="comment">// Set up a connection to the server.</span></span><br><span class="line">	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		log.Fatalf(<span class="string">"did not connect: %v"</span>, err)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">defer</span> conn.Close()</span><br><span class="line">	c := pb.NewGreeterClient(conn)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Contact the server and print out its response.</span></span><br><span class="line">	name := defaultName</span><br><span class="line">	clientFunc := <span class="string">"Default"</span></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(os.Args) == <span class="number">3</span> &#123;</span><br><span class="line">		name = os.Args[<span class="number">1</span>]</span><br><span class="line">		clientFunc = os.Args[<span class="number">2</span>]</span><br><span class="line">	&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">		log.Fatal(<span class="string">"Please input 2 arguments"</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	ctx, cancel := context.WithTimeout(context.Background(), time.Second)</span><br><span class="line">	<span class="keyword">defer</span> cancel()</span><br><span class="line">	<span class="keyword">switch</span> clientFunc &#123;</span><br><span class="line">......</span><br><span class="line">	<span class="keyword">case</span> <span class="string">"Stream"</span>:</span><br><span class="line">		stream,err := c.TalkWithMe(ctx)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span>&#123;</span><br><span class="line">			log.Fatalf(<span class="string">"TalkWithMe err:%v"</span>,err)</span><br><span class="line">		&#125;</span><br><span class="line">		waitc := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;)</span><br><span class="line">		<span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span>&#123;</span><br><span class="line">			<span class="keyword">for</span> &#123;</span><br><span class="line">				something,err := stream.Recv()</span><br><span class="line">				<span class="comment">// 服务端信息发送完成，退出</span></span><br><span class="line">				<span class="keyword">if</span> err == io.EOF&#123;</span><br><span class="line">					<span class="keyword">break</span></span><br><span class="line">				&#125;</span><br><span class="line">				<span class="keyword">if</span> err != <span class="literal">nil</span>&#123;</span><br><span class="line">					log.Fatalf(<span class="string">"TalkWithMe stream error:%v"</span>,err)</span><br><span class="line">				&#125;</span><br><span class="line">				log.Printf(<span class="string">"Got %v:%s\n"</span>,something.GetLineCode(),something.GetLine())</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;() </span><br><span class="line">		clientStr := []<span class="keyword">string</span>&#123;<span class="string">"one"</span>,<span class="string">"two"</span>,<span class="string">"three"</span>&#125;</span><br><span class="line">		<span class="keyword">for</span> i,v := <span class="keyword">range</span>(clientStr)&#123;</span><br><span class="line">			<span class="keyword">if</span> err := stream.Send(&amp;pb.Something&#123;LineCode:<span class="keyword">int64</span>(i),Line:v&#125;);err != <span class="literal">nil</span>&#123;</span><br><span class="line">				log.Fatalf(<span class="string">"TalkWithMe Send error:%v"</span>,err)</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		stream.CloseSend()</span><br><span class="line">		&lt;- waitc</span><br><span class="line">	<span class="keyword">default</span>:</span><br><span class="line">		log.Fatal(<span class="string">"Please input second args in Default/ServerStream/ClientStream/Stream"</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>客户端发送请求还是通过调用 stream 的 Send() 方法发送请求，但是通知服务端请求发送完毕是通过调用 CloseSend() 方法，不过因为服务端发送的请求不是一次性发送的，所以这边用 goroutine 新开了一个线程用于接收服务端返回的响应。</p>
+<h3 id="演示"><a href="#演示" class="headerlink" title="演示"></a>演示</h3><ul>
+<li>服务端流式 RPC</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">## 终端 1</span><br><span class="line">$ go run server.go</span><br><span class="line">2020/03/29 19:50:47 Received ServerStream request from: Aob</span><br><span class="line"></span><br><span class="line">## 终端 2</span><br><span class="line">$ go run client.go Aob ServerStream</span><br><span class="line">2020/03/29 19:50:47 Recevie from server:&#123;LineCode:0 Line:Hello,Aob&#125;</span><br><span class="line">2020/03/29 19:50:47 Recevie from server:&#123;LineCode:1 Line:ServerLine1&#125;</span><br><span class="line">2020/03/29 19:50:47 Recevie from server:&#123;LineCode:2 Line:ServerLine2&#125;</span><br><span class="line">2020/03/29 19:50:47 Recevie from server:&#123;LineCode:3 Line:ServerLine3&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>客户端流式 RPC</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">## 终端 1 </span><br><span class="line">$ go run server.go</span><br><span class="line">2020/03/29 19:51:47 Recevied ClientStream request</span><br><span class="line"></span><br><span class="line">## 终端 2</span><br><span class="line">$ go run client.go Aob ClientStream</span><br><span class="line">2020/03/29 19:51:47 Recive from server:It&apos;s over.</span><br><span class="line">Received 2 times. Length:22</span><br></pre></td></tr></table></figure>
+<ul>
+<li>服务端/客户端流式 RPC</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">## 终端 1 </span><br><span class="line">$ go run server.go</span><br><span class="line">2020/03/29 19:52:46 Recevied Stream request</span><br><span class="line"></span><br><span class="line">## 终端 2</span><br><span class="line">$ go run client.go Aob Stream      </span><br><span class="line">2020/03/29 19:52:46 Got 1:Got one,Length:3</span><br><span class="line">2020/03/29 19:52:46 Got 2:Got two,Length:3</span><br><span class="line">2020/03/29 19:52:46 Got 3:Got three,Length:5</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>以上就是通过 Go 学习 gRPC 的一些记录，只是简单跑通了服务端与客户端之间的请求。<a href="https://github.com/Win-Man/NormalAccumulation/tree/master/learn-for-go/grpc-example" target="_blank" rel="noopener">完整代码地址</a></p>
+<p>一开始刚开始看 gRPC 的时候其实有点晕，因为又是 gRPC 又是 protocol 又是流式 RPC 的，但是实际学习下来发现定义简单的 gRPC 服务还是比较简单的，按照步骤走就可以：</p>
+<ol>
+<li>在 .proto 文件中定义 RPC 服务方法和消息</li>
+<li>根据 .proto 文件生成 pb.go 文件</li>
+<li>实现服务端代码</li>
+<li>实现客户端代码</li>
+</ol>
+<p>下一步准备学习一下 gRPC 与 TLS 安全加密相关的内容</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/gRPC/" rel="tag"># gRPC</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/02/03/docker-compost-network-mode-mysql-connect/" rel="prev" title="docker-compose 中 network_mode 设置导致无法从容器外部访问 MySQL">
+      <i class="fa fa-chevron-left"></i> docker-compose 中 network_mode 设置导致无法从容器外部访问 MySQL
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/06/16/051-pd-recovery/" rel="next" title="TiDB 异常断电恢复后 PD 节点启动失败">
+      TiDB 异常断电恢复后 PD 节点启动失败 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Go-实现-gRPC-服务"><span class="nav-number">1.</span> <span class="nav-text">Go 实现 gRPC 服务</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#介绍"><span class="nav-number">1.1.</span> <span class="nav-text">介绍</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#gRPC-是什么"><span class="nav-number">1.1.1.</span> <span class="nav-text">gRPC 是什么</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#gRPC-好处"><span class="nav-number">1.1.2.</span> <span class="nav-text">gRPC 好处</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#基础使用"><span class="nav-number">1.2.</span> <span class="nav-text">基础使用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#准备工作"><span class="nav-number">1.2.1.</span> <span class="nav-text">准备工作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#定义服务"><span class="nav-number">1.2.2.</span> <span class="nav-text">定义服务</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#编写服务端和客户端代码"><span class="nav-number">1.2.3.</span> <span class="nav-text">编写服务端和客户端代码</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#服务端代码"><span class="nav-number">1.2.3.1.</span> <span class="nav-text">服务端代码</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#客户端代码"><span class="nav-number">1.2.3.2.</span> <span class="nav-text">客户端代码</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#运行演示"><span class="nav-number">1.2.4.</span> <span class="nav-text">运行演示</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#进阶使用"><span class="nav-number">1.3.</span> <span class="nav-text">进阶使用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#服务端流式-RPC"><span class="nav-number">1.3.1.</span> <span class="nav-text">服务端流式 RPC</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#客户端流式-RPC"><span class="nav-number">1.3.2.</span> <span class="nav-text">客户端流式 RPC</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#服务端-客户端双向流式-RPC"><span class="nav-number">1.3.3.</span> <span class="nav-text">服务端/客户端双向流式 RPC</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#演示"><span class="nav-number">1.3.4.</span> <span class="nav-text">演示</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">1.4.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

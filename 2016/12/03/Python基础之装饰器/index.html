@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="1. 装饰器简介　　首先，@func_decorator 长成这个样子的东西，在 Python 中被称为装饰器（Decorator）。第一眼看到它，我还以为又遇到了 Java 中的注解（Annotation），有一种很熟悉的感觉。仔细了解下来，发现装饰器与注解有点类似又有点不同。 　　装饰器是用来修饰方法、函数或者类的，其作用是在原先的基础上完成一些额外的功能，利用装饰器来达到在不影响原先代码的情">
+<meta name="keywords" content="Python">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Python基础之装饰器">
+<meta property="og:url" content="http://yoursite.com/2016/12/03/Python基础之装饰器/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="1. 装饰器简介　　首先，@func_decorator 长成这个样子的东西，在 Python 中被称为装饰器（Decorator）。第一眼看到它，我还以为又遇到了 Java 中的注解（Annotation），有一种很熟悉的感觉。仔细了解下来，发现装饰器与注解有点类似又有点不同。 　　装饰器是用来修饰方法、函数或者类的，其作用是在原先的基础上完成一些额外的功能，利用装饰器来达到在不影响原先代码的情">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/func_decorator_without_args.PNG">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/func_decorator_with_args.PNG">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/class_decorator.PNG">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Python基础之装饰器">
+<meta name="twitter:description" content="1. 装饰器简介　　首先，@func_decorator 长成这个样子的东西，在 Python 中被称为装饰器（Decorator）。第一眼看到它，我还以为又遇到了 Java 中的注解（Annotation），有一种很熟悉的感觉。仔细了解下来，发现装饰器与注解有点类似又有点不同。 　　装饰器是用来修饰方法、函数或者类的，其作用是在原先的基础上完成一些额外的功能，利用装饰器来达到在不影响原先代码的情">
+<meta name="twitter:image" content="http://oc4wmeyj8.bkt.clouddn.com/func_decorator_without_args.PNG">
+
+<link rel="canonical" href="http://yoursite.com/2016/12/03/Python基础之装饰器/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>Python基础之装饰器 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2016/12/03/Python基础之装饰器/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Python基础之装饰器
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2016-12-03 10:09:21" itemprop="dateCreated datePublished" datetime="2016-12-03T10:09:21+00:00">2016-12-03</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index"><span itemprop="name">Python</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="1-装饰器简介"><a href="#1-装饰器简介" class="headerlink" title="1. 装饰器简介"></a>1. 装饰器简介</h1><p>　　首先，<code>@func_decorator</code> 长成这个样子的东西，在 Python 中被称为装饰器（Decorator）。第一眼看到它，我还以为又遇到了 Java 中的注解（Annotation），有一种很熟悉的感觉。仔细了解下来，发现装饰器与注解有点类似又有点不同。</p>
+<p>　　装饰器是用来修饰方法、函数或者类的，其作用是在原先的基础上完成一些额外的功能，利用装饰器来达到在不影响原先代码的情况下增加功能的需求。相比较而言，注解在 Java 中是可以用来修饰方法、函数、类和<strong>变量</strong>的，且其作用仅仅类似于注释的作用，当注解和 Java 中的反射机制结合在一起才完成了更多的功能。</p>
+<p>　　下面还是如何使用装饰器吧。</p>
+<h1 id="2-装饰器的分类"><a href="#2-装饰器的分类" class="headerlink" title="2. 装饰器的分类"></a>2. 装饰器的分类</h1><p>　　装饰器可以用于修饰函数和类，并且装饰器还分带参数和不带参数两种，所以我们分别来讲这几种不同的装饰器该如何编写，使用。</p>
+<h2 id="2-1-修饰函数的装饰器"><a href="#2-1-修饰函数的装饰器" class="headerlink" title="2.1 修饰函数的装饰器"></a>2.1 修饰函数的装饰器</h2><h3 id="2-1-1-不带参数的装饰器"><a href="#2-1-1-不带参数的装饰器" class="headerlink" title="2.1.1 不带参数的装饰器"></a>2.1.1 不带参数的装饰器</h3><p>　　假定我们之前有这么一个函数：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func_test</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">'This is func_test() running....'</span></span><br></pre></td></tr></table></figure>
+<p>　　现在，有这么一个需求过来：要求在这个函数运行开始前和运行结束后记录一下。之前的我肯定二话不说，操起键盘，上来就改成：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func_test</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">'%s() start.'</span> %(func_test.__name__)</span><br><span class="line">    <span class="keyword">print</span> <span class="string">'This is func_test() running....'</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">'%s() finish.'</span> %(func_test.__name__)</span><br></pre></td></tr></table></figure>
+<p>　　但是如果我用装饰器我可以怎么写呢。</p>
+<p>　　首先，使用装饰器之前需要先定义装饰器，Python 定义装饰器和定义函数式一样的：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func_decorator</span><span class="params">(func)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">wrapper</span><span class="params">(*args,**kw)</span>:</span></span><br><span class="line">        <span class="keyword">print</span> <span class="string">'%s() start.'</span> %(func.__name__)</span><br><span class="line">        func(*args,**kw)</span><br><span class="line">        <span class="keyword">print</span> <span class="string">'%s() finish.'</span> %(func.__name__)</span><br><span class="line">    <span class="keyword">return</span> wrapper</span><br></pre></td></tr></table></figure>
+<p>　　然后怎么使用这和装饰器呢，很简单：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@func_decorator</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func_test</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">'This is func_test() running....'</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">	func_test()</span><br></pre></td></tr></table></figure>
+<p>　　就是在原先的基础上增加了一行代码，做到的效果和我原先更改两行代码的效果是一样的。</p>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/func_decorator_without_args.PNG" alt></p>
+<p>　　在回过头来看一下 <code>func_decorator</code> 的代码，其实不难理解，因为 Python 一切都是对象，所以装饰器，把函数 <code>func_test</code> 当成一个参数传入一个新的函数中，在新的函数 <code>wrapper</code> 中增加我们所需要的功能，最后将这个经过<strong>装饰</strong>的函数返回，使其替代原先的函数。</p>
+<h3 id="2-1-2-带参数的装饰器"><a href="#2-1-2-带参数的装饰器" class="headerlink" title="2.1.2 带参数的装饰器"></a>2.1.2 带参数的装饰器</h3><p>　　有了不带参数的装饰器的基础，带参数的装饰器就比较容易理解了。我们看到装饰器的定义和函数的定义没有什么区别，我们可以向函数传递参数，那么我们也可以向装饰器传递参数。假定我们现在还是原来那个函数：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func_test</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">'This is func_test() running....'</span></span><br></pre></td></tr></table></figure>
+<p>　　新的需求是：输出函数使用对象。</p>
+<p>　　我们可以定义这样一个装饰器：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func_decorator_with_args</span><span class="params">(user)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">decorator</span><span class="params">(func)</span>:</span></span><br><span class="line">        <span class="function"><span class="keyword">def</span> <span class="title">wrapper</span><span class="params">(*args,**kw)</span>:</span></span><br><span class="line">            <span class="keyword">print</span> <span class="string">'The user of func is %s'</span> %(user)</span><br><span class="line">            <span class="keyword">return</span> func(*args,**kw)</span><br><span class="line">        <span class="keyword">return</span> wrapper</span><br><span class="line">    <span class="keyword">return</span> decorator</span><br></pre></td></tr></table></figure>
+<p>　　然后使用这个装饰器：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@func_decorator_with_args('sg')</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func_test</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">'This is func_test() running....'</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">	func_test()</span><br></pre></td></tr></table></figure>
+<p>　　结果如下：</p>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/func_decorator_with_args.PNG" alt></p>
+<p>　　给定义带参数的装饰器的时候也可以向函数一样指定默认值。</p>
+<h2 id="2-2-修饰类的装饰器"><a href="#2-2-修饰类的装饰器" class="headerlink" title="2.2 修饰类的装饰器"></a>2.2 修饰类的装饰器</h2><p>　　看过用来修饰函数的装饰器，我们再来看看修饰类的装饰器。修饰函数的装饰器是将原函数包装成一个新的函数并且返回，修饰类的装饰器也是一样的道理，是将原先的类包装成一个新的类并且返回。</p>
+<p>　　假设我们有这么一个类：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">People</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self,age,name)</span>:</span></span><br><span class="line">        self.age = age</span><br><span class="line">        self.name = name</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">show</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">print</span> <span class="string">'Age:%d Name:%s'</span> %(self.age,self.name)</span><br></pre></td></tr></table></figure>
+<p>　　需求是在每次调用 <code>show()</code> 函数的时候，记录这个函数一共被调用了几次。</p>
+<p>　　我们定义了这么一个装饰器，并使用这个装饰器：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">class_decorator</span><span class="params">(a)</span>:</span></span><br><span class="line">    <span class="class"><span class="keyword">class</span> <span class="title">NewClass</span><span class="params">(object)</span>:</span></span><br><span class="line">        <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self,age,name)</span>:</span></span><br><span class="line">            self.show_count = <span class="number">0</span></span><br><span class="line">            self.wrapped = a(age,name)</span><br><span class="line">        <span class="function"><span class="keyword">def</span> <span class="title">show</span><span class="params">(self)</span>:</span></span><br><span class="line">            self.show_count += <span class="number">1</span></span><br><span class="line">            <span class="keyword">print</span> <span class="string">'Call show() %d '</span> %(self.show_count)</span><br><span class="line">            self.wrapped.show()</span><br><span class="line">    <span class="keyword">return</span> NewClass</span><br><span class="line"></span><br><span class="line"><span class="meta">@class_decorator</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">People</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self,age,name)</span>:</span></span><br><span class="line">        self.age = age</span><br><span class="line">        self.name = name</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">show</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">print</span> <span class="string">'Age:%d Name:%s'</span> %(self.age,self.name)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    p = People(<span class="number">22</span>,<span class="string">'sg'</span>)</span><br><span class="line">    p.show()</span><br><span class="line">    p.show()</span><br></pre></td></tr></table></figure>
+<p>　　可以得到结果：</p>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/class_decorator.PNG" alt></p>
+<p>　　可以看到 <code>class_decorator</code> 这装饰器是创建了一个 <code>NewClass</code> 来替代被装饰的类，比较重要的点就是，调用被装饰类的 <code>init()</code> 方法来获得被装饰类的一个对象，并用这个对象完成对原先方法的调用。</p>
+<h1 id="3-装饰器的用途"><a href="#3-装饰器的用途" class="headerlink" title="3. 装饰器的用途"></a>3. 装饰器的用途</h1><p>　　装饰器的作用和设计模式中的装饰模式吻合，在尽量保持原代码不动的情况下增加程序的功能。但是从我目前的感觉来说，Pyhton 的装饰器用于修饰函数还是可以的，但是用于修饰类的装饰器，我觉得并不方便，因为装饰器的代码完全需要依赖于原先的类的定义，我定义一个装饰器，我还不如重新定义一个类来继承原类。</p>
+<p>　　总结来说，我知道装饰器该怎么用了，但是用在哪，怎么<strong>用好</strong>装饰器，我任然需要学习。</p>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Python/" rel="tag"># Python</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2016/11/07/MySQL 主从环境配置/" rel="prev" title="MySQL 主从环境配置">
+      <i class="fa fa-chevron-left"></i> MySQL 主从环境配置
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2016/12/07/win_man_20161224_mysql_binary_log_group_commit/" rel="next" title="MySQL基础之BLGC">
+      MySQL基础之BLGC <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#1-装饰器简介"><span class="nav-number">1.</span> <span class="nav-text">1. 装饰器简介</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#2-装饰器的分类"><span class="nav-number">2.</span> <span class="nav-text">2. 装饰器的分类</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1-修饰函数的装饰器"><span class="nav-number">2.1.</span> <span class="nav-text">2.1 修饰函数的装饰器</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-1-不带参数的装饰器"><span class="nav-number">2.1.1.</span> <span class="nav-text">2.1.1 不带参数的装饰器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-2-带参数的装饰器"><span class="nav-number">2.1.2.</span> <span class="nav-text">2.1.2 带参数的装饰器</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-修饰类的装饰器"><span class="nav-number">2.2.</span> <span class="nav-text">2.2 修饰类的装饰器</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#3-装饰器的用途"><span class="nav-number">3.</span> <span class="nav-text">3. 装饰器的用途</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

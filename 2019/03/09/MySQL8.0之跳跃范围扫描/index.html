@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="简介跳跃范围扫描是MySQL在8.0.13版本新增加的用于提高性能的新特性，跳跃范围扫描可以使以前部分无法使用到联合索引的SQL利用联合索引进行查询，并且可以更高效的利用联合索引，这对于使用MySQL联合索引进行查询的应用意义重大。 环境信息 MySQL版本：8.0.15 操作系统版本：redhat-7.4  跳跃范围扫描通过一个示例来解释跳跃范围扫描：1234567891011121314151">
+<meta name="keywords" content="MySQL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL8.0之跳跃范围扫描">
+<meta property="og:url" content="http://yoursite.com/2019/03/09/MySQL8.0之跳跃范围扫描/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="简介跳跃范围扫描是MySQL在8.0.13版本新增加的用于提高性能的新特性，跳跃范围扫描可以使以前部分无法使用到联合索引的SQL利用联合索引进行查询，并且可以更高效的利用联合索引，这对于使用MySQL联合索引进行查询的应用意义重大。 环境信息 MySQL版本：8.0.15 操作系统版本：redhat-7.4  跳跃范围扫描通过一个示例来解释跳跃范围扫描：1234567891011121314151">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL8.0之跳跃范围扫描">
+<meta name="twitter:description" content="简介跳跃范围扫描是MySQL在8.0.13版本新增加的用于提高性能的新特性，跳跃范围扫描可以使以前部分无法使用到联合索引的SQL利用联合索引进行查询，并且可以更高效的利用联合索引，这对于使用MySQL联合索引进行查询的应用意义重大。 环境信息 MySQL版本：8.0.15 操作系统版本：redhat-7.4  跳跃范围扫描通过一个示例来解释跳跃范围扫描：1234567891011121314151">
+<meta name="twitter:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+
+<link rel="canonical" href="http://yoursite.com/2019/03/09/MySQL8.0之跳跃范围扫描/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL8.0之跳跃范围扫描 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/03/09/MySQL8.0之跳跃范围扫描/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL8.0之跳跃范围扫描
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2019-03-09 21:12:13" itemprop="dateCreated datePublished" datetime="2019-03-09T21:12:13+00:00">2019-03-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>跳跃范围扫描是MySQL在8.0.13版本新增加的用于提高性能的新特性，跳跃范围扫描可以使以前部分无法使用到联合索引的SQL利用联合索引进行查询，并且可以更高效的利用联合索引，这对于使用MySQL联合索引进行查询的应用意义重大。</p>
+<h2 id="环境信息"><a href="#环境信息" class="headerlink" title="环境信息"></a>环境信息</h2><ul>
+<li>MySQL版本：8.0.15</li>
+<li>操作系统版本：redhat-7.4</li>
+</ul>
+<h2 id="跳跃范围扫描"><a href="#跳跃范围扫描" class="headerlink" title="跳跃范围扫描"></a>跳跃范围扫描</h2><p>通过一个示例来解释跳跃范围扫描：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE t1 (f1 INT NOT NULL, f2 INT NOT NULL, PRIMARY KEY(f1, f2));</span><br><span class="line">INSERT INTO t1 VALUES(1,1), (1,2), (1,3), (1,4), (1,5),(2,1), (2,2), (2,3), (2,4), (2,5);</span><br><span class="line">INSERT INTO t1 SELECT f1, f2 + 5 FROM t1;</span><br><span class="line">INSERT INTO t1 SELECT f1, f2 + 10 FROM t1;</span><br><span class="line">INSERT INTO t1 SELECT f1, f2 + 20 FROM t1;</span><br><span class="line">INSERT INTO t1 SELECT f1, f2 + 40 FROM t1;</span><br><span class="line">ANALYZE TABLE t1;</span><br><span class="line">EXPLAIN SELECT f1, f2 FROM t1 WHERE f2 &gt; 40\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">           id: 1</span><br><span class="line">  select_type: SIMPLE</span><br><span class="line">        table: t1</span><br><span class="line">   partitions: NULL</span><br><span class="line">         type: range</span><br><span class="line">possible_keys: PRIMARY</span><br><span class="line">          key: PRIMARY</span><br><span class="line">      key_len: 8</span><br><span class="line">          ref: NULL</span><br><span class="line">         rows: 53</span><br><span class="line">     filtered: 100.00</span><br><span class="line">        Extra: Using where; Using index for skip scan</span><br><span class="line">1 row in set, 1 warning (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; select version();</span><br><span class="line">+-----------+</span><br><span class="line">| version() |</span><br><span class="line">+-----------+</span><br><span class="line">| 8.0.15 |</span><br><span class="line">+-----------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure></p>
+<p>在这个示例中，<code>SELECT f1,f2 FROM t1 WHERE f2&gt;40</code>在8.0.13版本之前是通过索引全扫描的方式来获取最终的结果集，因为SELECT查询的字段全部都是索引的组成部分。MySQL通过索引全扫描获取所有的行记录，然后通过<code>f2 &gt; 40</code>这个条件过滤，最终筛选出结果集返回给客户端。</p>
+<p>众所周知，索引范围扫描的效率肯定是要高于索引全扫描的，在这个示例中，虽然查询条件是<code>f2 &gt; 40</code>，属于范围查询，但是WHERE条件中不包含<code>f1</code>字段的的条件，所以无法使用索引范围扫描的方式过滤数据。在MySQL-8.0.13版本增加的跳跃范围扫描特性，就是针对类似的场景的优化，跳跃范围扫描在这个示例中实际是针对每一个<code>f1</code>字段的值，进行了范围扫描，即进行了多次范围扫描。</p>
+<p>针对这个示例，具体的跳跃范围扫描过程如下：</p>
+<ol>
+<li>获取联合索引中第一个字段<code>f1</code>的第一个值：<code>f1 = 1</code></li>
+<li>将获取到的值和WHERE条件中的<code>f2</code>的条件组合：<code>f1 = 1 AND f2 &gt; 40</code></li>
+<li>执行这个范围扫描查询</li>
+<li>获取联合索引中第一个字段<code>f1</code>的第二个值：<code>f1 = 2</code></li>
+<li>将获取到的值和WHERE条件中的<code>f2</code>的条件组合：<code>f1 = 2 AND f2 &gt; 40</code></li>
+<li>执行这个范围扫描查询</li>
+<li>将两次范围扫描查询的结果合并返回给客户端</li>
+</ol>
+<p>跳跃范围扫描实际就是将一些全扫描的场景拆分成多个范围扫描，利用范围扫描的效率高于全扫描的效率，最终实现提高SQL效率。</p>
+<p>在这个示例中，比较有跳跃范围扫描特性的SQL执行计划以及没有跳跃范围扫描特性的SQL执行计划：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"># 有跳跃范围扫描特性</span><br><span class="line">mysql&gt; EXPLAIN SELECT f1, f2 FROM t1 WHERE f2 &gt; 40\G</span><br><span class="line">*************************** 1. row ***************************</span><br><span class="line">           id: 1</span><br><span class="line">  select_type: SIMPLE</span><br><span class="line">        table: t1</span><br><span class="line">   partitions: NULL</span><br><span class="line">         type: range</span><br><span class="line">possible_keys: PRIMARY</span><br><span class="line">          key: PRIMARY</span><br><span class="line">      key_len: 8</span><br><span class="line">          ref: NULL</span><br><span class="line">         rows: 53</span><br><span class="line">     filtered: 100.00</span><br><span class="line">        Extra: Using where; Using index for skip scan</span><br><span class="line">1 row in set, 1 warning (0.00 sec)</span><br><span class="line"></span><br><span class="line"># 没有跳跃范围扫描特性</span><br><span class="line">mysql&gt; EXPLAIN SELECT f1, f2 FROM t1 WHERE f2 &gt; 40\G </span><br><span class="line"> *************************** 1. row ***************************</span><br><span class="line">           id: 1</span><br><span class="line">  select_type: SIMPLE</span><br><span class="line">        table: t1</span><br><span class="line">   partitions: NULL</span><br><span class="line">         type: index</span><br><span class="line">possible_keys: NULL</span><br><span class="line">          key: PRIMARY</span><br><span class="line">      key_len: 8</span><br><span class="line">          ref: NULL</span><br><span class="line">         rows: 160</span><br><span class="line">     filtered: 33.33</span><br><span class="line">        Extra: Using where; Using index</span><br><span class="line">1 row in set, 1 warning (0.00 sec)</span><br></pre></td></tr></table></figure></p>
+<p>通过执行计划可以看到,有跳跃范围扫描特性的查询扫描的行数更少且过滤性更高。</p>
+<h2 id="使用限制以及场景"><a href="#使用限制以及场景" class="headerlink" title="使用限制以及场景"></a>使用限制以及场景</h2><p>下面来说说跳跃范围扫描使用一些限制以及场景：</p>
+<ul>
+<li>表上至少存在一个联合索引<code>([A_1,A_2...A_k],B_1,B_2...B_m,C,[,D_1,...,D_n])</code>，其中A部分以及D部分可以为空，但是B和C部分不能为空。A_1,A_2..等代表字段值</li>
+<li>只针对单表查询</li>
+<li>查询中不包含<code>GROUP BY</code>或者<code>DISTINCT</code></li>
+<li>SELECT查询的字段全部被包含在索引组成部分，即符合覆盖索引规范</li>
+<li>前缀<code>A_1,A_2...A_k</code>部分必须是可以被相等的常量</li>
+<li>字段C上必须是一个范围条件，大于或大于等于，小于或小于等于</li>
+<li>允许在D字段上有过滤条件，但是必须和C上的范围条件一起使用</li>
+</ul>
+<p>跳跃范围扫描默认是开启的，有两种方式可以关闭跳跃范围扫描特性：</p>
+<ul>
+<li>通过修改<code>optimizer_switcher</code>变量值，默认MySQL是将<code>optimizer_switcher</code>中的<code>skip_scan</code>设置为on的，可以通过将<code>skip_scan</code>设置为off关闭跳跃范围扫描</li>
+<li>通过Hint的方式关闭跳跃范围扫描特性：<code>SELECT/*+ NO_SKIP_SCAN(t1 PRIMARY) */ f1, f2 FROM t1 WHERE f2 &gt; 40;</code></li>
+</ul>
+<p>对于使用了跳跃范围扫描特性的SQL，使用EXPLAIN查看其执行计划，可以看到：</p>
+<ul>
+<li>在执行计划输出的Extra一栏中有：<code>Using index for skip scan</code></li>
+<li>在执行计划输出的possible_keys一栏中会显示可以使用到的索引</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>跳跃范围扫描是对使用MySQL联合索引查询的SQL意义重大，能在使SQL查询效率更高，但是并不是使用到跳跃范围扫描就能代表SQL执行效率更高。在MySQL一些开发规范中，一般要求建立联合索引时将重复值少的字段放在联合索引前面，将重复值多的字段放在联合索引后面，方便SQL在使用联合索引时通过前面的字段快速过滤结果。但是在跳跃范围扫描特性中，是遍历前面字段的值，与后续字段的范围查询条件组合，进行范围扫描查询，那对于重复值少的字段会被拆分成多个范围扫描查询，在实际使用过程中并不一定会比索引全扫描效率更高。</p>
+<p>所以个人觉得跳跃范围扫描适用于联合索引中前导列distinct值较少，后续字段选择过滤性又比较好的场景，能更好的发挥跳跃范围扫描的作用。</p>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/02/04/2018总结/" rel="prev" title="2018总结">
+      <i class="fa fa-chevron-left"></i> 2018总结
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/12/MySQL日常问题两则/" rel="next" title="MySQL日常问题两则">
+      MySQL日常问题两则 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#简介"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#环境信息"><span class="nav-number">2.</span> <span class="nav-text">环境信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#跳跃范围扫描"><span class="nav-number">3.</span> <span class="nav-text">跳跃范围扫描</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用限制以及场景"><span class="nav-number">4.</span> <span class="nav-text">使用限制以及场景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

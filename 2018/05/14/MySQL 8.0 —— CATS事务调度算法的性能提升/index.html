@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="原文地址：https://mysqlserverteam.com/contention-aware-transaction-scheduling-arriving-in-innodb-to-boost-performance/原文作者： Sunny Bains, Jiamin Huang (University of Michigan)译者：沈刚  什么是事务调度？目前大多数的数据库系统都是通过">
+<meta name="keywords" content="MySQL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL 8.0 —— CATS事务调度算法的性能提升">
+<meta property="og:url" content="http://yoursite.com/2018/05/14/MySQL 8.0 —— CATS事务调度算法的性能提升/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="原文地址：https://mysqlserverteam.com/contention-aware-transaction-scheduling-arriving-in-innodb-to-boost-performance/原文作者： Sunny Bains, Jiamin Huang (University of Michigan)译者：沈刚  什么是事务调度？目前大多数的数据库系统都是通过">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/8.0_cats_transaction_schdule_1.png">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/8.0_cats_transaction_schdule_2.png">
+<meta property="og:image" content="http://oc4wmeyj8.bkt.clouddn.com/8.0_cats_transaction_schdule_3.png">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&h=258&f=jpeg&s=26568">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL 8.0 —— CATS事务调度算法的性能提升">
+<meta name="twitter:description" content="原文地址：https://mysqlserverteam.com/contention-aware-transaction-scheduling-arriving-in-innodb-to-boost-performance/原文作者： Sunny Bains, Jiamin Huang (University of Michigan)译者：沈刚  什么是事务调度？目前大多数的数据库系统都是通过">
+<meta name="twitter:image" content="http://oc4wmeyj8.bkt.clouddn.com/8.0_cats_transaction_schdule_1.png">
+
+<link rel="canonical" href="http://yoursite.com/2018/05/14/MySQL 8.0 —— CATS事务调度算法的性能提升/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL 8.0 —— CATS事务调度算法的性能提升 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/05/14/MySQL 8.0 —— CATS事务调度算法的性能提升/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL 8.0 —— CATS事务调度算法的性能提升
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2018-05-14 12:08:13" itemprop="dateCreated datePublished" datetime="2018-05-14T12:08:13+00:00">2018-05-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>原文地址：<a href="https://mysqlserverteam.com/contention-aware-transaction-scheduling-arriving-in-innodb-to-boost-performance/" target="_blank" rel="noopener">https://mysqlserverteam.com/contention-aware-transaction-scheduling-arriving-in-innodb-to-boost-performance/</a><br>原文作者： Sunny Bains, Jiamin Huang (University of Michigan)<br>译者：沈刚</p>
+</blockquote>
+<h2 id="什么是事务调度？"><a href="#什么是事务调度？" class="headerlink" title="什么是事务调度？"></a>什么是事务调度？</h2><p>目前大多数的数据库系统都是通过锁的方式来控制并发的情况。但是对于很多数据库厂商来说，都会有一个问题:</p>
+<blockquote>
+<p>当有多个事务同时需要获取同一把锁，那么哪个事务应该最先获得这把锁？</p>
+</blockquote>
+<p>包括之前版本的MySQL在内，几乎所有的数据库都是通过FIFO机制来解决这个问题。简单来说，FIFO机制就是将锁分配给最先请求该锁的事务（即该事务在等待队列的最前面，除非它们与当前锁赋予的锁不兼容）。因为这种机制是实现起来简单，所以很多的数据库厂商都是通过FIFO的策略进行事务调度，没有考虑其他的调度策略。</p>
+<p>最近一个密歇根大学的研究组织提出，这个问题背后隐藏着巨大的性能提升空间。Mozafari教授和他的学生证明了不同的锁分配策略以及事务调度策略对于数据库性能有着很大的影响。他们提出了一种称之为Contention-Aware Transaction Scheduling(CATS)的算法，使用这种算法进行事务调度相较于之前的FIFO策略，显著地减少了数据库延迟，提高了吞吐量。</p>
+<p>Oracle MySQL官方团队和Mozafari教授以及他的学生们紧密合作，使得MySQL是第一个采用这种新技术的数据库。在MySQL 8.0.3版本之后，CATS策略作为InnoDB的默认调度算法，也就是说MySQL的使用者可以感觉到显著的性能提升，尤其是在持续高压力负载的情况下。</p>
+<h2 id="CATS机制原理"><a href="#CATS机制原理" class="headerlink" title="CATS机制原理"></a>CATS机制原理</h2><p>CATS算法是基于很简单的一个观点：不是所有的事务都是平等的，不是所有的对象都是平等的。当一个事务已经持有了多个对象的锁，当该事务请求一个新的锁的时候，该事务应该被优先分配。从另一个方面讲，解锁这样的事务有助于解锁更多的事务。因为该事务优先被分配锁能更快的结束事务，释放另外已经获取到的对象的锁。通过这种方式可以使数据库获得更高的吞吐和更低的延迟。</p>
+<p>有一个比喻的例子：如果有一个出租车司机和一个公交车司机都在等咖啡，那么先给公交车司机做咖啡（即使公交车司机比出租车司机迟来）可能会让更多的人尽早到达他们的目的地。因为公交车上的乘客比出租车上的乘客多。这看起来似乎对出租车司机不公平，但是这种策略可以使得整个系统运行的更快，这对于系统内的每个人都是有利的。</p>
+<p>当然，我们现在是在解决锁的问题而不是交通司机的问题。让我们通过一个简单的例子来阐述一下CATS机制在数据库中是如何工作的。我们知道在不同的事务隔离级别下，事务在读取或者更新数据的时候，需要先获取对应数据的锁。当一个事务所需要的锁已经被其他事务所持有了，那么这个事务会一直等待直到其他事务释放这个锁。当事务已经持有一部分对象锁的时候，可能会在获取其他对象的锁的时候一直被阻塞住，这个时候就需要死锁检测机制来检测当前数据库中没有锁等待循环，防止死锁。来看下面这张图：<br><img src="http://oc4wmeyj8.bkt.clouddn.com/8.0_cats_transaction_schdule_1.png" alt></p>
+<p>Transaction contention<br>在这种场景下，FIFO策略很简单，只需要考虑那个事务先请求O1对象的锁。但是CATS算法会更加智能地处理这个情况：CATS算法会计算每个事务直接阻塞和间接阻塞的事务数量，然后将O1对象的锁分配给阻塞了更多事务的事务。在这个场景下，t1事务阻塞了4个事务，t2事务阻塞了3个事务。所以根据CATS算法会将O1对象的锁分配给t1事务。这样可以将更多的事务释放出来，这样有利于提高系统整体的性能。</p>
+<p>对于共享锁（S锁），CATS算法会尽可能多的分配共享锁。在这方面FIFO和CATS算法有不同的地方。FIFO按照队列的先后顺序分配共享锁，当遇到分配的对象上已经有排他锁（X锁）了，则停止分配。而在CATS中，按照事务阻塞的事务数进行倒序排序，然后按照这个顺序进行锁分配。</p>
+<h2 id="CATS机制带来的性能提升"><a href="#CATS机制带来的性能提升" class="headerlink" title="CATS机制带来的性能提升"></a>CATS机制带来的性能提升</h2><p>Oracle的Dimitri Kravtchuk通过Sysbench 的OLTP脚本测试这种新的算法。通过结果显示，在并发情况下，CATS算法比FIFO算法在TPS，平均延迟，95%延迟等指标方面都有显著的性能提升。有趣的是，即使在没有并发的情况下，CATS算法的性能和FIFO算法性能是一样的。那是因为在没有并发的时候，没有事务需要进行调度，所以也就没有性能的差异。换而言之，使用CATS算法替换FIFO算法，没有任何损失，反而在数据库繁忙的时候，有很大的性能提升。</p>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/8.0_cats_transaction_schdule_2.png" alt></p>
+<p>CATS vs. FIFO in TPS, mean latency and 95th percentile (up to 5.05x improvement)</p>
+<p><img src="http://oc4wmeyj8.bkt.clouddn.com/8.0_cats_transaction_schdule_3.png" alt></p>
+<h2 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h2><p>MySQL是全球第一个使用这种最先进的CATS事务调度算法的数据库。这个算法解决了数据库在遇到高压力情况下性能急剧下降的问题，这个也是MySQL 8.0主要想要达到的目标。<br>CATS算法是针对当事务并发超过32的情况，这个数值没有参数配置，是通过经验设置的。</p>
+<blockquote>
+<p>博客地址：<a href="https://win-man.github.io/" target="_blank" rel="noopener">https://win-man.github.io/</a><br>公众号：欢迎关注  </p>
+</blockquote>
+<p><img src="https://user-gold-cdn.xitu.io/2018/8/16/165435ce71d2b88b?w=258&amp;h=258&amp;f=jpeg&amp;s=26568" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/05/14/MySQL 8.0 —— 数据字典/" rel="prev" title="MySQL 8.0 —— 数据字典">
+      <i class="fa fa-chevron-left"></i> MySQL 8.0 —— 数据字典
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/07/04/MySQL8.0——Resource Group（资源组）/" rel="next" title="MySQL8.0——Resource Group">
+      MySQL8.0——Resource Group <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#什么是事务调度？"><span class="nav-number">1.</span> <span class="nav-text">什么是事务调度？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CATS机制原理"><span class="nav-number">2.</span> <span class="nav-text">CATS机制原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CATS机制带来的性能提升"><span class="nav-number">3.</span> <span class="nav-text">CATS机制带来的性能提升</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#结论"><span class="nav-number">4.</span> <span class="nav-text">结论</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

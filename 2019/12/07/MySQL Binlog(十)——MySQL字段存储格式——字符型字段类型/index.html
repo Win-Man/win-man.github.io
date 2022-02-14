@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型前言本文继续介绍binlog中字符类型字段的存储格式。 字符型字段类型中文等字符存储以该字段的字符集规定存储二进制数据。 CHAR和VARCHAR类型 [NATIONAL] CHAR[( M )] [CHARACTER SET charset_name ] [COLLATE collation_name ]  定长字符串存储">
+<meta name="keywords" content="MySQL,Binlog">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型">
+<meta property="og:url" content="http://yoursite.com/2019/12/07/MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型前言本文继续介绍binlog中字符类型字段的存储格式。 字符型字段类型中文等字符存储以该字段的字符集规定存储二进制数据。 CHAR和VARCHAR类型 [NATIONAL] CHAR[( M )] [CHARACTER SET charset_name ] [COLLATE collation_name ]  定长字符串存储">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型">
+<meta name="twitter:description" content="MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型前言本文继续介绍binlog中字符类型字段的存储格式。 字符型字段类型中文等字符存储以该字段的字符集规定存储二进制数据。 CHAR和VARCHAR类型 [NATIONAL] CHAR[( M )] [CHARACTER SET charset_name ] [COLLATE collation_name ]  定长字符串存储">
+
+<link rel="canonical" href="http://yoursite.com/2019/12/07/MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型 | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/12/07/MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2019-12-07 16:55:13" itemprop="dateCreated datePublished" datetime="2019-12-07T16:55:13+00:00">2019-12-07</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index"><span itemprop="name">MySQL</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="MySQL-Binlog-十-——MySQL字段存储格式——字符型字段类型"><a href="#MySQL-Binlog-十-——MySQL字段存储格式——字符型字段类型" class="headerlink" title="MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型"></a>MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型</h1><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>本文继续介绍binlog中字符类型字段的存储格式。</p>
+<h2 id="字符型字段类型"><a href="#字符型字段类型" class="headerlink" title="字符型字段类型"></a>字符型字段类型</h2><p>中文等字符存储以该字段的字符集规定存储二进制数据。</p>
+<h3 id="CHAR和VARCHAR类型"><a href="#CHAR和VARCHAR类型" class="headerlink" title="CHAR和VARCHAR类型"></a>CHAR和VARCHAR类型</h3><ul>
+<li>[NATIONAL] CHAR[( M )] [CHARACTER SET charset_name ] [COLLATE collation_name ]</li>
+</ul>
+<p>定长字符串存储时总是使用空格填充右侧达到指定长度。M表示字符串列的长度。M的范围是0到255。省略的花，长度为1。</p>
+<p>CHAR是CHARACTER的简写。NATIONAL CHAR（或简写NCHAR）是标准的定义CHAR列应该使用默认字符集的SQL方法。MySQL4.1及更高版本使用utf8作为默认字符集。</p>
+<p>CHAR BYTE是BINARY的别名。这是为了保证兼容性。</p>
+<p>MySQL允许定义创建一个CHAR(0)的列。这主要用于必须有一个列，而实际上并不使用值，用以与旧版本的应用程序相兼容。当需要只有两个值的列时CHAR(0)也很不错：定义了CHAR(0)NULL的列只占用一位，可只取值NULL和’’（空字符串）</p>
+<ul>
+<li>[NATIONAL] VARCHAR(M) [CHARACTER SET charset_name] [COLLATE collation_name]</li>
+</ul>
+<p>变长字符串。M表示最大列长度。M的范围是0到65535。VARCAHR的最大长度由最长行的大小（所有列的共享65535字节）和字符集决定。例如，utf8字符需要多达每个字符三个字节，所以VARCHAR列最多指定21844个字符。</p>
+<p>MySQL存储VARCHAR时使用一个或两个字节的前缀+数据。长度前缀表示内容占用的字节数。当列长度不超过255个字节长度前缀占一个字节，当列长度超过255个字节长度前缀占两个字节。</p>
+<p>VARCHAR是CHARACTER VARYING的简写。</p>
+<h3 id="BINARY和VARBINARY类型"><a href="#BINARY和VARBINARY类型" class="headerlink" title="BINARY和VARBINARY类型"></a>BINARY和VARBINARY类型</h3><ul>
+<li>BINARY(M)</li>
+</ul>
+<p>BINARY类型与CHAR类型相似，不过存储的是二进制字节字符串而不是非二进制字符串。M表示列的长度（以字节为单位）</p>
+<ul>
+<li>VARBINARY(M)</li>
+</ul>
+<p>VARBINARY类型与VARCHAR类型相似，不过存储的是二进制字节字符串而不是非二进制字符串。M表示最大列长度（以字节为单位）</p>
+<h3 id="BLOB和TEXT类型"><a href="#BLOB和TEXT类型" class="headerlink" title="BLOB和TEXT类型"></a>BLOB和TEXT类型</h3><ul>
+<li>TINYBLOB</li>
+</ul>
+<p>这种BLOB列的最大长度是65535(2^8-1)个字节。存储每个TINYBLOB列时使用一个字节的前缀长度记录内容占用的字节数。</p>
+<ul>
+<li>BLOB[(M)]</li>
+</ul>
+<p>BLOB列的最大长度是65535（2^16-1）个字节。存储每个BLOB列时使用两个字节的前缀长度记录内容占用的字节数。</p>
+<ul>
+<li>MEDIUMBLOB</li>
+</ul>
+<p>这种BLOB列的最大长度是16777215（2^24-1）个字节。存储每个MEDIUMBLOB列时使用三个字节的前缀长度记录内容占用的字节数。</p>
+<ul>
+<li>LONGBLOB</li>
+</ul>
+<p>这种BLOB列的最大长度是4294967295或者（2^32-1）个字节。LONGBLOB列的最大有效长度取决于客户端/服务器协议配置的最大包大小和可用内存。存储每个LONGBLOB列时使用四个字节的前缀长度记录内容占用的字节数。</p>
+<ul>
+<li>TINYTEXT [CHARACTER SET charset_name ] [COLLATE collation_name ]</li>
+</ul>
+<p>这种TEXT列的最大长度是255（2^8-1）个字节。如果内容包含多字节字符，那么最大有效长度将减少。存储每个TINYTEXT时使用一个字节的前缀长度记录内容占用的字节数。</p>
+<ul>
+<li>TEXT[( M )] [CHARACTER SET charset_name ] [COLLATE collation_name ]</li>
+</ul>
+<p>TEXT列的最大长度是65535（2^16-1）个字节。如果内容包含多字节字符，那么最大有效长度将减少。存储每个TEXT列时使用两个字节的前缀长度记录内容占用的字节。</p>
+<p>可以给出该类型的可选长度M。如果指定了，那么MySQL会创建一个最小的，但可以容纳M字节长度的TEXT列。</p>
+<ul>
+<li>MEDIUMTEXT [CHARACTER SET charset_name ] [COLLATE collation_name ]</li>
+</ul>
+<p>这种TEXT列的最大长度是16,777,215（224-1）个字节。如果内容包含多字节字符，那么最大有效长度将减少。存储每个MEDIUMTEXT列时使用三个字节的前缀长度记录内容占用的字节数。</p>
+<ul>
+<li>LONGTEXT [CHARACTER SET charset_name ] [COLLATE collation_name ]</li>
+</ul>
+<p>这种TEXT列的最大长度是4,294,967,295或者4GB（232-1）个字节。如果内容包含多字节字符，那么最大有效长度将减少。LONGTEXT列的最大有效长度取决于客户端/服务器协议中配置的最大包大小和可用内存。存储每个LONGTEXT列时使用四个字节的前缀长度记录内容占用的字节数。</p>
+<h3 id="ENUM类型"><a href="#ENUM类型" class="headerlink" title="ENUM类型"></a>ENUM类型</h3><ul>
+<li>ENUM( ‘ value1 ‘,’ value2 ‘,…) [CHARACTER SET charset_name ] [COLLATE collation_name ]</li>
+</ul>
+<p>枚举类型。属于字符串对象，允许从’ value1 ‘,’ value2 ‘,…,NULL或特殊的’’错误值 列表中选取一个值。ENUM值内部用整数表示。</p>
+<p>ENUM列最多可以有65,535个不同的元素（实际的限制小于3000个元素）。一张表可以不超过255个唯一的元素，列表定义中ENUM和SET列视为一组。</p>
+<h3 id="SET类型"><a href="#SET类型" class="headerlink" title="SET类型"></a>SET类型</h3><ul>
+<li>SET(‘ value1 ‘,’ value2 ‘,…) [CHARACTER SET charset_name ] [COLLATE collation_name ]</li>
+</ul>
+<p>设置类型。属于字符串对象，可以有零个或多个值，必须从’ value1 ‘,’ value2 ‘,…中选取值，SET值内部用整数表示。</p>
+<p>SET列最多可以有64个不同的元素。一张表可以不超过255个唯一的元素，列表定义中ENUM和SET列视为一组。</p>
+<h2 id="字符型数据存储格式"><a href="#字符型数据存储格式" class="headerlink" title="字符型数据存储格式"></a>字符型数据存储格式</h2><h3 id="解析环境描述"><a href="#解析环境描述" class="headerlink" title="解析环境描述"></a>解析环境描述</h3><h4 id="表结构定义"><a href="#表结构定义" class="headerlink" title="表结构定义"></a>表结构定义</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE `string_table` (</span><br><span class="line">  `col1` varchar(500) COLLATE utf8_bin DEFAULT NULL,</span><br><span class="line">  `col2` char(60) COLLATE utf8_bin DEFAULT NULL,</span><br><span class="line">  `col3` blob,</span><br><span class="line">  `col4` set(&apos;a&apos;,&apos;b&apos;,&apos;c&apos;) COLLATE utf8_bin DEFAULT NULL,</span><br><span class="line">  `col5` enum(&apos;one&apos;,&apos;two&apos;,&apos;three&apos;) COLLATE utf8_bin DEFAULT NULL</span><br><span class="line">) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin</span><br></pre></td></tr></table></figure>
+<h4 id="表数据展示"><a href="#表数据展示" class="headerlink" title="表数据展示"></a>表数据展示</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">root@localhost : gangshen 07:37:31&gt; insert into string_table values(&apos;abcdefg&apos;,&apos;abc&apos;,&apos;abcdefghijklmnopqrstuvwxyz&apos;,&apos;c&apos;,&apos;two&apos;);</span><br><span class="line">Query OK, 1 row affected (0.04 sec)</span><br><span class="line"></span><br><span class="line">root@localhost : gangshen 07:40:27&gt; select * from string_table;</span><br><span class="line">+---------+------+----------------------------+------+------+</span><br><span class="line">| col1    | col2 | col3                      | col4 | col5 |</span><br><span class="line">+---------+------+----------------------------+------+------+</span><br><span class="line">| abcdefg | abc  | abcdefghijklmnopqrstuvwxyz | c    | two  |</span><br><span class="line">+---------+------+----------------------------+------+------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>然后从binlog文件中拿到，对应的Table_map_event和Writes_rows_event对应的字节内容，开始解析</p>
+<h3 id="元数据解析"><a href="#元数据解析" class="headerlink" title="元数据解析"></a>元数据解析</h3><h4 id="Table-map-event字节解析"><a href="#Table-map-event字节解析" class="headerlink" title="Table_map_event字节解析"></a>Table_map_event字节解析</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">公共头部部分省略。。。</span><br><span class="line">61 00 00 00 00 00 //table_id：小端存储，16进制转换成10进制为97</span><br><span class="line">01 00 //flag</span><br><span class="line">08 67 61 6e 67 73 68 65 6e 00 //database_name:1个字节是字符串长度，后接一个null-terminated string 第一个字节表示字符串长度为8，后面内容将16进制转换为ascii字符为gangshen</span><br><span class="line">0c 73 74 72 69 6e 67 5f 74 61 62 6c 65 00//table_name: 1个字节是字符串长度，后接一个null-terminated string第一个字节表示字符串长度为5，后面内容将16进制转换为ascii字符为string_table</span><br><span class="line">05 //columns count :packet integer类型，转换之后，数值为5 表示表中有5个字段</span><br><span class="line">0f fe fc fe fe //column type :</span><br><span class="line">09 //metadata length : packet integer类型,转换之后，数值为9，表示记录表中的metadata内容占用9个字节</span><br><span class="line">dc 05 //col1</span><br><span class="line">fe b4 //col2</span><br><span class="line">02 //col3</span><br><span class="line">f8 01 //col4</span><br><span class="line">f7 01 //col5</span><br><span class="line">1f //null_bits :int((column_count + 7) / 8)个字节 一个bit表示一个字段是否可以为null</span><br><span class="line">22 6b 17 48 //checksum</span><br></pre></td></tr></table></figure>
+<p>从Table_map_event中可以按照上面的讲述，解析出表中所有的字段类型以及对应的元数据，按照顺序分别是：</p>
+<p>第一个字段：0x0f=MYSQL_TYPE_VARCHAR 元数据0xdc05表示字段最多占用的字节数，因为是小端存储，所以该字段最多占用0x05dc=1500字节。这个占用的字节数取决于表的字符集，因为表的字符集为utf8，所以每个字符最多占用3个字节，所以该字段最多占用500*3个字节。</p>
+<p>第二个字段：0xfe=MYSQL_TYPE_STRING，因为是MYSQL_TYPE_STRING类型，所以其真实的字段类型应该是元数据第一个字节（0xfe）和0x30做与运算之后的结果， 第二个字节表示该字段最多占用的字节数，所以该字段最多占用0xb4=180个字节</p>
+<p>第三个字段：0x12=MYSQL_TYPE_BLOB 元数据0x02表示该字段类型为BLOB/TEXT类型</p>
+<p>第四个字段：0x11=MYSQL_TYPE_STRING,所以其真实的字段类型应该是元数据的第一个字节（0xf8）和0x30做与运算之后的结果，即其真实类型是MYSQLTYPE_SET第二个字节表示该字段最多占用的字节数，所以该字段最多占用0x01个字节的内容。</p>
+<p>第五个字段：0x11=MYSQL_TYPE_STRING，所以其真实的字段类型应该是元数据的第一个字节（0xf8）和0x30做与运算之后的结果，即其真实类型是MYSQLTYPE_SET第二个字节表示该字段最多占用的字节数，所以该字段最多占用0x01个字节的内容。</p>
+<h3 id="字符型数据“值”解析"><a href="#字符型数据“值”解析" class="headerlink" title="字符型数据“值”解析"></a>字符型数据“值”解析</h3><h4 id="Write-rows-log-event字节解析"><a href="#Write-rows-log-event字节解析" class="headerlink" title="Write_rows_log_event字节解析"></a>Write_rows_log_event字节解析</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">公共头部部分省略。。。</span><br><span class="line">61 00 00 00 00 00 //table_id: 小端存储，16进制转换为10进制为97</span><br><span class="line">01 00 //flag:</span><br><span class="line">02 00 //var header length :小端存储，16进制转换为10进制为2</span><br><span class="line">05 //m_width :packet integer，表示表中字段数量</span><br><span class="line">ff //before image: (m_width + 7) / 8字节</span><br><span class="line">e0 //bitmap_bits :表中两个字段，插入的值都不为NULL</span><br><span class="line">07 00 61 62 63 64 65 66 67 //col1</span><br><span class="line">03 61 62 63 //col2</span><br><span class="line">1a 00 61 62 63 64 65 66 67 68 69 6a 6b 6c 6d 6e 6f 70 71 72 73 74 75 76 77 78 79 7a //col3</span><br><span class="line">04 //col4</span><br><span class="line">02 //col5</span><br><span class="line">46 1d 2a 69 //checksum</span><br></pre></td></tr></table></figure>
+<h4 id="MYSQL-TYPE-VARCHAR字段解析"><a href="#MYSQL-TYPE-VARCHAR字段解析" class="headerlink" title="MYSQL_TYPE_VARCHAR字段解析"></a>MYSQL_TYPE_VARCHAR字段解析</h4><p>MYSQL_TYPE_VARCHAR类型字段由长度和字符串内容两部分组成，长度由由字段的元数据决定，字段的元数据表示该字段最大占用字节数。如果元数据小于255，则MYSQL_TYPE_VARCHAR类型使用一个字节表示字符串长度，长度后面紧接着就是字符串的内容；如果元数据大于等于255，则MYSQL_TYPE_VARCHAR类型使用两个字节表示字符串长度（小端存储），长度后面紧接这就是字符串的内容。</p>
+<p>在上面的例子中，col1的字段类型为MYSQL_TYPE_VARCHAR类型，且元数据为0x05dc=2500大于255，所以使用两个字节表示字符串长度，所以字符串长度为0x0700，因为是小端存储，所以实际为0x0007，即字符串长度为7个字节。紧接着读取7个字节的内容0x61626364656667转换为ascii为abcdefg，所以col1的字段值为abcdefg</p>
+<h4 id="MYSQL-TYPE-STRING字段解析"><a href="#MYSQL-TYPE-STRING字段解析" class="headerlink" title="MYSQL_TYPE_STRING字段解析"></a>MYSQL_TYPE_STRING字段解析</h4><p>MYSQL_TYPE_STRING类型字段由长度和字符串内容两部分组成，长度由由字段的元数据决定，字段的元数据表示该字段最大占用字节数。如果元数据小于255，则MYSQL_TYPE_STRING类型使用一个字节表示字符串长度，长度后面紧接着就是字符串的内容；如果元数据大于等于255，则MYSQL_TYPE_STRING类型使用两个字节表示字符串长度（小端存储），长度后面紧接这就是字符串的内容。</p>
+<p>在上面的例子中，col2的字段类型是MYSQL_TYPE_STRING类型，且元数据中最大占用字节数为0xb4=180小于255，所以使用一个字节表示字符串长度，所以字符串长度为0x03=3个字节。紧接着读取3个字节的内容0x616263专户为ascii为abc，所以col2的字段值为abc</p>
+<h4 id="MYSQL-TYPE-BLOB字段解析"><a href="#MYSQL-TYPE-BLOB字段解析" class="headerlink" title="MYSQL_TYPE_BLOB字段解析"></a>MYSQL_TYPE_BLOB字段解析</h4><p>MYSQL_TYPE_BLOB类型字段由长度和字符串内容两部分组成，长度由字段的元数据决定，字段的元数据表示BLOB的类型。如果元数据是1，表示是TINYBLOB/TINYTEXT类型，则MYSQL_TYPE_BLOB类型使用一个字节表示字符串长度，长度后面紧接着就是字符串的内容；如果元数据是2，表示是BLOB/TEXT类型，则MYSQL_TYPE_BLOB类型使用两个字节表示字符串长度（小端存储），长度后面紧接着就是字符串内容；如果元数据是3，表示是MEDIUMBLOB/MEDIUMTEXT类型，则MYSQL_TYPE_BLOB类型使用三个字节表示字符串长度（小端存储），长度后面紧接着就是字符串内容；如果元数据是4，表示是LONGBLOB/LONGTEXT类型，则MYSQL_TYPE_BLOB类型使用四个字节表示字符串长度（小端存储），长度后面紧接着就是字符串内容。</p>
+<p>在上面的例子中，col3字段的类型是MYSQL_TYPE_BLOB类型，且元数据为0x02，表示类型为BLOB/TEXT类型，说明该字段使用两个字节表示字符串的长度。所以字符串长度为0x1a00，因为是小端存储，所以字符串长度为0x001a=26，紧接着读取26个字节的内容0x6162636465666768696a6b6c6d6e6f707172737475767778797a转换为ascii为abcdefghijklmnopqrstuvwxyz，所以col3的字段值为abcdefghijklmnopqrstuvwxyz。</p>
+<h4 id="MYSQL-TYPE-SET字段解析"><a href="#MYSQL-TYPE-SET字段解析" class="headerlink" title="MYSQL_TYPE_SET字段解析"></a>MYSQL_TYPE_SET字段解析</h4><p>MYSQL_TYPE_SET类型字段内容取决于字段定义SET的数量，表示字段值所需字节数量可以从字段元数据的第二个字节获取到，第二个字节表示内容长度。MYSQL_TYPE_SET类型字段内容采用压缩的表示方法，对应比特位置1则表示值是该位，但是从binlog中无法解析出SET类型内容的具体类型，只能解析出对应的比特位表示方式。</p>
+<p>在上面的例子中，col4字段的类型是MYSQL_TYPE_SET，且元数据中表示该字段使用0x01个字节表示字段值，所以col4在Write_rows_log_event占用1个字节的内容，为0x04，转换为二进制为b’100’，从右往左第3位比特位上是1，表示值为set定义中第三个。从Write_rows_log_event中，无法解析出set定义的每个项，查看建表语句，得知set定义中第三个为c，即col4字段的值为c</p>
+<h4 id="MYSQL-TYPE-ENUM字段解析"><a href="#MYSQL-TYPE-ENUM字段解析" class="headerlink" title="MYSQL_TYPE_ENUM字段解析"></a>MYSQL_TYPE_ENUM字段解析</h4><p>MYSQL_TYPE_ENUM类型字段内容取决于字段定义ENUM数量，表示字段值所需字节数量可以从字段元数据的第二个字节获取到，第二个字节表示内容长度。</p>
+<p>当元数据第二个字节等于1的时候，MYSQL_TYPE_ENUM字段值使用一个字节表示，当元数据第二个字节等于2的时候，MYSQL_TYPE_ENUM字段值使用两个字节表示。</p>
+<p>在上面的例子中，col5字段的类型是MYSQL_TYPE_ENUM，且元数据中表示该字段使用0x01个字节表示字段值，所以col5在Write_rows_log_event中占用1个字节的内容，为0x02，转换为10进制为2，即表示值为enum定义中的第2个。在Write_rows_log_event中，无法解析出enum定义的每个项，查看建表语句，得知enum定义中第二个值为two，即col5字段的值为two。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"># MySQL</a>
+              <a href="/tags/Binlog/" rel="tag"># Binlog</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/12/07/MySQL Binlog(九)——MySQL字段存储格式——日期类型字段类型/" rel="prev" title="MySQL Binlog(九)——MySQL字段存储格式——日期类型字段类型">
+      <i class="fa fa-chevron-left"></i> MySQL Binlog(九)——MySQL字段存储格式——日期类型字段类型
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/12/07/MySQL Binlog(十一)——MySQL binlog event解析实例/" rel="next" title="MySQL Binlog(十一)——MySQL binlog event解析实例">
+      MySQL Binlog(十一)——MySQL binlog event解析实例 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#MySQL-Binlog-十-——MySQL字段存储格式——字符型字段类型"><span class="nav-number">1.</span> <span class="nav-text">MySQL Binlog(十)——MySQL字段存储格式——字符型字段类型</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#字符型字段类型"><span class="nav-number">1.2.</span> <span class="nav-text">字符型字段类型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CHAR和VARCHAR类型"><span class="nav-number">1.2.1.</span> <span class="nav-text">CHAR和VARCHAR类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#BINARY和VARBINARY类型"><span class="nav-number">1.2.2.</span> <span class="nav-text">BINARY和VARBINARY类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#BLOB和TEXT类型"><span class="nav-number">1.2.3.</span> <span class="nav-text">BLOB和TEXT类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ENUM类型"><span class="nav-number">1.2.4.</span> <span class="nav-text">ENUM类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SET类型"><span class="nav-number">1.2.5.</span> <span class="nav-text">SET类型</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#字符型数据存储格式"><span class="nav-number">1.3.</span> <span class="nav-text">字符型数据存储格式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#解析环境描述"><span class="nav-number">1.3.1.</span> <span class="nav-text">解析环境描述</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#表结构定义"><span class="nav-number">1.3.1.1.</span> <span class="nav-text">表结构定义</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#表数据展示"><span class="nav-number">1.3.1.2.</span> <span class="nav-text">表数据展示</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#元数据解析"><span class="nav-number">1.3.2.</span> <span class="nav-text">元数据解析</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Table-map-event字节解析"><span class="nav-number">1.3.2.1.</span> <span class="nav-text">Table_map_event字节解析</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#字符型数据“值”解析"><span class="nav-number">1.3.3.</span> <span class="nav-text">字符型数据“值”解析</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Write-rows-log-event字节解析"><span class="nav-number">1.3.3.1.</span> <span class="nav-text">Write_rows_log_event字节解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#MYSQL-TYPE-VARCHAR字段解析"><span class="nav-number">1.3.3.2.</span> <span class="nav-text">MYSQL_TYPE_VARCHAR字段解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#MYSQL-TYPE-STRING字段解析"><span class="nav-number">1.3.3.3.</span> <span class="nav-text">MYSQL_TYPE_STRING字段解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#MYSQL-TYPE-BLOB字段解析"><span class="nav-number">1.3.3.4.</span> <span class="nav-text">MYSQL_TYPE_BLOB字段解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#MYSQL-TYPE-SET字段解析"><span class="nav-number">1.3.3.5.</span> <span class="nav-text">MYSQL_TYPE_SET字段解析</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#MYSQL-TYPE-ENUM字段解析"><span class="nav-number">1.3.3.6.</span> <span class="nav-text">MYSQL_TYPE_ENUM字段解析</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

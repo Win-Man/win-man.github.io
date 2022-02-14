@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="原文地址：https://cstack.github.io/db_tutorial/parts/part4.html原文作者： cstack译者：Win-Man  目前为止，我们的数据库具备了插入记录和输出所有记录行的能力。让我们花点时间测试一下目前数据库的能力。 我准备使用 rspec 写测试，因为我对这个比较熟悉，并且语法比较易读。 我会定义一个简短的助手去发送一系列命令给我们的数据库程序，">
+<meta name="keywords" content="翻译,Database">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Let&#39;s Build a Simple Database - Our First Tests(and Bugs)">
+<meta property="og:url" content="http://yoursite.com/2021/05/09/058-simple-database-4/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="原文地址：https://cstack.github.io/db_tutorial/parts/part4.html原文作者： cstack译者：Win-Man  目前为止，我们的数据库具备了插入记录和输出所有记录行的能力。让我们花点时间测试一下目前数据库的能力。 我准备使用 rspec 写测试，因为我对这个比较熟悉，并且语法比较易读。 我会定义一个简短的助手去发送一系列命令给我们的数据库程序，">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Let&#39;s Build a Simple Database - Our First Tests(and Bugs)">
+<meta name="twitter:description" content="原文地址：https://cstack.github.io/db_tutorial/parts/part4.html原文作者： cstack译者：Win-Man  目前为止，我们的数据库具备了插入记录和输出所有记录行的能力。让我们花点时间测试一下目前数据库的能力。 我准备使用 rspec 写测试，因为我对这个比较熟悉，并且语法比较易读。 我会定义一个简短的助手去发送一系列命令给我们的数据库程序，">
+
+<link rel="canonical" href="http://yoursite.com/2021/05/09/058-simple-database-4/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>Let's Build a Simple Database - Our First Tests(and Bugs) | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/05/09/058-simple-database-4/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Let's Build a Simple Database - Our First Tests(and Bugs)
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-05-09 21:12:13" itemprop="dateCreated datePublished" datetime="2021-05-09T21:12:13+00:00">2021-05-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/翻译/" itemprop="url" rel="index"><span itemprop="name">翻译</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>原文地址：<a href="https://cstack.github.io/db_tutorial/parts/part4.html" target="_blank" rel="noopener">https://cstack.github.io/db_tutorial/parts/part4.html</a><br>原文作者： <a href="https://github.com/cstack" target="_blank" rel="noopener">cstack</a><br>译者：<a href="https://github.com/Win-Man" target="_blank" rel="noopener">Win-Man</a></p>
+</blockquote>
+<p>目前为止，我们的数据库具备了插入记录和输出所有记录行的能力。让我们花点时间测试一下目前数据库的能力。</p>
+<p>我准备使用 <a href="http://rspec.info/" target="_blank" rel="noopener">rspec</a> 写测试，因为我对这个比较熟悉，并且语法比较易读。</p>
+<p>我会定义一个简短的助手去发送一系列命令给我们的数据库程序，然后对返回的输出结果做断言。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">describe &apos;database&apos; do</span><br><span class="line">  def run_script(commands)</span><br><span class="line">    raw_output = nil</span><br><span class="line">    IO.popen(&quot;./db&quot;, &quot;r+&quot;) do |pipe|</span><br><span class="line">      commands.each do |command|</span><br><span class="line">        pipe.puts command</span><br><span class="line">      end</span><br><span class="line"></span><br><span class="line">      pipe.close_write</span><br><span class="line"></span><br><span class="line">      # Read entire output</span><br><span class="line">      raw_output = pipe.gets(nil)</span><br><span class="line">    end</span><br><span class="line">    raw_output.split(&quot;\n&quot;)</span><br><span class="line">  end</span><br><span class="line"></span><br><span class="line">  it &apos;inserts and retrieves a row&apos; do</span><br><span class="line">    result = run_script([</span><br><span class="line">      &quot;insert 1 user1 person1@example.com&quot;,</span><br><span class="line">      &quot;select&quot;,</span><br><span class="line">      &quot;.exit&quot;,</span><br><span class="line">    ])</span><br><span class="line">    expect(result).to match_array([</span><br><span class="line">      &quot;db &gt; Executed.&quot;,</span><br><span class="line">      &quot;db &gt; (1, user1, person1@example.com)&quot;,</span><br><span class="line">      &quot;Executed.&quot;,</span><br><span class="line">      &quot;db &gt; &quot;,</span><br><span class="line">    ])</span><br><span class="line">  end</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+<p>这个简单的测试确保了我们得到了和我们输入一样的输出结果，并且这个测试确实通过了：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bundle exec rspec</span><br><span class="line">.</span><br><span class="line"></span><br><span class="line">Finished in 0.00871 seconds (files took 0.09506 seconds to load)</span><br><span class="line">1 example, 0 failures</span><br></pre></td></tr></table></figure>
+<p>然后就可以测试往数据库中插入大量的记录了：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">it &apos;prints error message when table is full&apos; do</span><br><span class="line">  script = (1..1401).map do |i|</span><br><span class="line">    &quot;insert #&#123;i&#125; user#&#123;i&#125; person#&#123;i&#125;@example.com&quot;</span><br><span class="line">  end</span><br><span class="line">  script &lt;&lt; &quot;.exit&quot;</span><br><span class="line">  result = run_script(script)</span><br><span class="line">  expect(result[-2]).to eq(&apos;db &gt; Error: Table full.&apos;)</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+<p>再重新运行测试。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bundle exec rspec</span><br><span class="line">..</span><br><span class="line"></span><br><span class="line">Finished in 0.01553 seconds (files took 0.08156 seconds to load)</span><br><span class="line">2 examples, 0 failures</span><br></pre></td></tr></table></figure>
+<p>测试通过了，我们的数据库可以存储 1400 行数据目前，因为我们设置了最大的数据页大小是 100，并且每个数据页上可以存储 14 条记录。</p>
+<p>重新翻看我们写的代码，我意识到我们可能没有正确的处理如何存储 text 字段。可以很容易的验证这个 case:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">it &apos;allows inserting strings that are the maximum length&apos; do</span><br><span class="line">  long_username = &quot;a&quot;*32</span><br><span class="line">  long_email = &quot;a&quot;*255</span><br><span class="line">  script = [</span><br><span class="line">    &quot;insert 1 #&#123;long_username&#125; #&#123;long_email&#125;&quot;,</span><br><span class="line">    &quot;select&quot;,</span><br><span class="line">    &quot;.exit&quot;,</span><br><span class="line">  ]</span><br><span class="line">  result = run_script(script)</span><br><span class="line">  expect(result).to match_array([</span><br><span class="line">    &quot;db &gt; Executed.&quot;,</span><br><span class="line">    &quot;db &gt; (1, #&#123;long_username&#125;, #&#123;long_email&#125;)&quot;,</span><br><span class="line">    &quot;Executed.&quot;,</span><br><span class="line">    &quot;db &gt; &quot;,</span><br><span class="line">  ])</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+<p>然后测试就跑不通了</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">Failures:</span><br><span class="line"></span><br><span class="line">  1) database allows inserting strings that are the maximum length</span><br><span class="line">     Failure/Error: raw_output.split(&quot;\n&quot;)</span><br><span class="line"></span><br><span class="line">     ArgumentError:</span><br><span class="line">       invalid byte sequence in UTF-8</span><br><span class="line">     # ./spec/main_spec.rb:14:in `split&apos;</span><br><span class="line">     # ./spec/main_spec.rb:14:in `run_script&apos;</span><br><span class="line">     # ./spec/main_spec.rb:48:in `block (2 levels) in &lt;top (required)&gt;&apos;</span><br></pre></td></tr></table></figure>
+<p>如果我们手动测试这个例子，我们可以在输出的记录中看到一些奇怪的字符(我对字符串进行了缩写)：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">db &gt; insert 1 aaaaa... aaaaa...</span><br><span class="line">Executed.</span><br><span class="line">db &gt; select</span><br><span class="line">(1, aaaaa...aaa\�, aaaaa...aaa\�)</span><br><span class="line">Executed.</span><br><span class="line">db &gt;</span><br></pre></td></tr></table></figure>
+<p>这是怎么回事？我们再看一下我们对于 Row 的定义，我们给 username 字段分配了 32 字节的空间，email 字段分配了 255 字节的空间。但是 C 语言中 string 类型的字段应该是以 null 字符结尾的，我们并没有给这个结束符分配空间。所以这个问题的结局方案就是多分配一个字节的空间：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">const</span> <span class="keyword">uint32_t</span> COLUMN_EMAIL_SIZE = <span class="number">255</span>;</span><br><span class="line"> <span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">   <span class="keyword">uint32_t</span> id;</span><br><span class="line">-  <span class="keyword">char</span> username[COLUMN_USERNAME_SIZE];</span><br><span class="line">-  <span class="keyword">char</span> email[COLUMN_EMAIL_SIZE];</span><br><span class="line">+  <span class="keyword">char</span> username[COLUMN_USERNAME_SIZE + <span class="number">1</span>];</span><br><span class="line">+  <span class="keyword">char</span> email[COLUMN_EMAIL_SIZE + <span class="number">1</span>];</span><br><span class="line"> &#125; Row;</span><br></pre></td></tr></table></figure>
+<p>再次运行测试，可以看到测试通过了</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"> bundle exec rspec</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">Finished in 0.0188 seconds (files took 0.08516 seconds to load)</span><br><span class="line">3 examples, 0 failures</span><br></pre></td></tr></table></figure>
+<p>我们不应该允许插入的 username 和 email 字段的值超过我们定义的 column size ，可以增加一个测试：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">it &apos;prints error message if strings are too long&apos; do</span><br><span class="line">  long_username = &quot;a&quot;*33</span><br><span class="line">  long_email = &quot;a&quot;*256</span><br><span class="line">  script = [</span><br><span class="line">    &quot;insert 1 #&#123;long_username&#125; #&#123;long_email&#125;&quot;,</span><br><span class="line">    &quot;select&quot;,</span><br><span class="line">    &quot;.exit&quot;,</span><br><span class="line">  ]</span><br><span class="line">  result = run_script(script)</span><br><span class="line">  expect(result).to match_array([</span><br><span class="line">    &quot;db &gt; String is too long.&quot;,</span><br><span class="line">    &quot;db &gt; Executed.&quot;,</span><br><span class="line">    &quot;db &gt; &quot;,</span><br><span class="line">  ])</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+<p>为了实现这个限制，我们需要更新一下我们的 parser 解析器。目前使用的是 scanf()：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (<span class="built_in">strncmp</span>(input_buffer-&gt;buffer, <span class="string">"insert"</span>, <span class="number">6</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">  statement-&gt;type = STATEMENT_INSERT;</span><br><span class="line">  <span class="keyword">int</span> args_assigned = <span class="built_in">sscanf</span>(</span><br><span class="line">      input_buffer-&gt;buffer, <span class="string">"insert %d %s %s"</span>, &amp;(statement-&gt;row_to_insert.id),</span><br><span class="line">      statement-&gt;row_to_insert.username, statement-&gt;row_to_insert.email);</span><br><span class="line">  <span class="keyword">if</span> (args_assigned &lt; <span class="number">3</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> PREPARE_SYNTAX_ERROR;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> PREPARE_SUCCESS;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>但是 scanf() 有一些缺点。如果读取的字符串大小超过了分配的空间，会导致缓存溢出并且数据会被写入到未知的空间。我们需要在拷贝数据到 Row 结构体之前先检查一下字符串的长度。为了实现这个，我们需要将输入通过空格切割一下。</p>
+<p>我准备试用 strtok() 来实现这个。这个比较容易理解：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">+<span class="function">PrepareResult <span class="title">prepare_insert</span><span class="params">(InputBuffer* input_buffer, Statement* statement)</span> </span>&#123;</span><br><span class="line">+  statement-&gt;type = STATEMENT_INSERT;</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">char</span>* keyword = strtok(input_buffer-&gt;buffer, <span class="string">" "</span>);</span><br><span class="line">+  <span class="keyword">char</span>* id_string = strtok(<span class="literal">NULL</span>, <span class="string">" "</span>);</span><br><span class="line">+  <span class="keyword">char</span>* username = strtok(<span class="literal">NULL</span>, <span class="string">" "</span>);</span><br><span class="line">+  <span class="keyword">char</span>* email = strtok(<span class="literal">NULL</span>, <span class="string">" "</span>);</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">if</span> (id_string == <span class="literal">NULL</span> || username == <span class="literal">NULL</span> || email == <span class="literal">NULL</span>) &#123;</span><br><span class="line">+    <span class="keyword">return</span> PREPARE_SYNTAX_ERROR;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">int</span> id = atoi(id_string);</span><br><span class="line">+  <span class="keyword">if</span> (<span class="built_in">strlen</span>(username) &gt; COLUMN_USERNAME_SIZE) &#123;</span><br><span class="line">+    <span class="keyword">return</span> PREPARE_STRING_TOO_LONG;</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">if</span> (<span class="built_in">strlen</span>(email) &gt; COLUMN_EMAIL_SIZE) &#123;</span><br><span class="line">+    <span class="keyword">return</span> PREPARE_STRING_TOO_LONG;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  statement-&gt;row_to_insert.id = id;</span><br><span class="line">+  <span class="built_in">strcpy</span>(statement-&gt;row_to_insert.username, username);</span><br><span class="line">+  <span class="built_in">strcpy</span>(statement-&gt;row_to_insert.email, email);</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">return</span> PREPARE_SUCCESS;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line"> <span class="function">PrepareResult <span class="title">prepare_statement</span><span class="params">(InputBuffer* input_buffer,</span></span></span><br><span class="line"><span class="function"><span class="params">                                 Statement* statement)</span> </span>&#123;</span><br><span class="line">   <span class="keyword">if</span> (<span class="built_in">strncmp</span>(input_buffer-&gt;buffer, <span class="string">"insert"</span>, <span class="number">6</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">+    <span class="keyword">return</span> prepare_insert(input_buffer, statement);</span><br><span class="line">-    statement-&gt;type = STATEMENT_INSERT;</span><br><span class="line">-    <span class="keyword">int</span> args_assigned = <span class="built_in">sscanf</span>(</span><br><span class="line">-        input_buffer-&gt;buffer, <span class="string">"insert %d %s %s"</span>, &amp;(statement-&gt;row_to_insert.id),</span><br><span class="line">-        statement-&gt;row_to_insert.username, statement-&gt;row_to_insert.email);</span><br><span class="line">-    <span class="keyword">if</span> (args_assigned &lt; <span class="number">3</span>) &#123;</span><br><span class="line">-      <span class="keyword">return</span> PREPARE_SYNTAX_ERROR;</span><br><span class="line">-    &#125;</span><br><span class="line">-    <span class="keyword">return</span> PREPARE_SUCCESS;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
+<p>在输入缓冲区上连续调用strtok，每当缓冲区到达分隔符(在本例中是空格)时，就插入一个空字符，从而将它分解为子字符串。它返回一个指向子字符串开头的指针。</p>
+<p>可以调用 strlen() 函数确认每个 text 字段值是不是超过了长度限制。</p>
+<p>我们可以像处理别的错误一样处理这个错误：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">enum</span> PrepareResult_t &#123;</span><br><span class="line">   PREPARE_SUCCESS,</span><br><span class="line">+  PREPARE_STRING_TOO_LONG,</span><br><span class="line">   PREPARE_SYNTAX_ERROR,</span><br><span class="line">   PREPARE_UNRECOGNIZED_STATEMENT</span><br><span class="line"> &#125;;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">switch</span> (prepare_statement(input_buffer, &amp;statement)) &#123;</span><br><span class="line">   <span class="keyword">case</span> (PREPARE_SUCCESS):</span><br><span class="line">     <span class="keyword">break</span>;</span><br><span class="line">+  <span class="keyword">case</span> (PREPARE_STRING_TOO_LONG):</span><br><span class="line">+    <span class="built_in">printf</span>(<span class="string">"String is too long.\n"</span>);</span><br><span class="line">+    <span class="keyword">continue</span>;</span><br><span class="line">   <span class="keyword">case</span> (PREPARE_SYNTAX_ERROR):</span><br><span class="line">     <span class="built_in">printf</span>(<span class="string">"Syntax error. Could not parse statement.\n"</span>);</span><br><span class="line">     <span class="keyword">continue</span>;</span><br></pre></td></tr></table></figure>
+<p>再次运行测试，测试通过</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">bundle exec rspec</span><br><span class="line">....</span><br><span class="line"></span><br><span class="line">Finished in 0.02284 seconds (files took 0.116 seconds to load)</span><br><span class="line">4 examples, 0 failures</span><br></pre></td></tr></table></figure>
+<p>既然已经增加了一种错误情况，我们不妨再处理一个错误情况:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">it &apos;prints an error message if id is negative&apos; do</span><br><span class="line">  script = [</span><br><span class="line">    &quot;insert -1 cstack foo@bar.com&quot;,</span><br><span class="line">    &quot;select&quot;,</span><br><span class="line">    &quot;.exit&quot;,</span><br><span class="line">  ]</span><br><span class="line">  result = run_script(script)</span><br><span class="line">  expect(result).to match_array([</span><br><span class="line">    &quot;db &gt; ID must be positive.&quot;,</span><br><span class="line">    &quot;db &gt; Executed.&quot;,</span><br><span class="line">    &quot;db &gt; &quot;,</span><br><span class="line">  ])</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">enum</span> PrepareResult_t &#123;</span><br><span class="line">   PREPARE_SUCCESS,</span><br><span class="line">+  PREPARE_NEGATIVE_ID,</span><br><span class="line">   PREPARE_STRING_TOO_LONG,</span><br><span class="line">   PREPARE_SYNTAX_ERROR,</span><br><span class="line">   PREPARE_UNRECOGNIZED_STATEMENT</span><br><span class="line">@@ <span class="number">-148</span>,<span class="number">9</span> +<span class="number">147</span>,<span class="number">6</span> @@ <span class="function">PrepareResult <span class="title">prepare_insert</span><span class="params">(InputBuffer* input_buffer, Statement* statement)</span> </span>&#123;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="keyword">int</span> id = atoi(id_string);</span><br><span class="line">+  <span class="keyword">if</span> (id &lt; <span class="number">0</span>) &#123;</span><br><span class="line">+    <span class="keyword">return</span> PREPARE_NEGATIVE_ID;</span><br><span class="line">+  &#125;</span><br><span class="line">   <span class="keyword">if</span> (<span class="built_in">strlen</span>(username) &gt; COLUMN_USERNAME_SIZE) &#123;</span><br><span class="line">     <span class="keyword">return</span> PREPARE_STRING_TOO_LONG;</span><br><span class="line">   &#125;</span><br><span class="line">@@ <span class="number">-230</span>,<span class="number">9</span> +<span class="number">226</span>,<span class="number">6</span> @@ <span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span>* argv[])</span> </span>&#123;</span><br><span class="line">     <span class="keyword">switch</span> (prepare_statement(input_buffer, &amp;statement)) &#123;</span><br><span class="line">       <span class="keyword">case</span> (PREPARE_SUCCESS):</span><br><span class="line">         <span class="keyword">break</span>;</span><br><span class="line">+      <span class="keyword">case</span> (PREPARE_NEGATIVE_ID):</span><br><span class="line">+        <span class="built_in">printf</span>(<span class="string">"ID must be positive.\n"</span>);</span><br><span class="line">+        <span class="keyword">continue</span>;</span><br><span class="line">       <span class="keyword">case</span> (PREPARE_STRING_TOO_LONG):</span><br><span class="line">         <span class="built_in">printf</span>(<span class="string">"String is too long.\n"</span>);</span><br><span class="line">         <span class="keyword">continue</span>;</span><br></pre></td></tr></table></figure>
+<p>目前这些测试已经足够了，下一个章节会是一个重要的特性：持久化。我们需要将数据存储到文件中，并且中文件中读取出来。</p>
+<p>那会很棒的。</p>
+<p>在这给出这个部分中与之前代码不同的部分：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><span class="line">@@ <span class="number">-22</span>,<span class="number">6</span> +<span class="number">22</span>,<span class="number">8</span> @@</span><br><span class="line"></span><br><span class="line"> <span class="keyword">enum</span> PrepareResult_t &#123;</span><br><span class="line">   PREPARE_SUCCESS,</span><br><span class="line">+  PREPARE_NEGATIVE_ID,</span><br><span class="line">+  PREPARE_STRING_TOO_LONG,</span><br><span class="line">   PREPARE_SYNTAX_ERROR,</span><br><span class="line">   PREPARE_UNRECOGNIZED_STATEMENT</span><br><span class="line">  &#125;;</span><br><span class="line">@@ <span class="number">-34</span>,<span class="number">8</span> +<span class="number">36</span>,<span class="number">8</span> @@</span><br><span class="line"> <span class="meta">#<span class="meta-keyword">define</span> COLUMN_EMAIL_SIZE 255</span></span><br><span class="line"> <span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">   <span class="keyword">uint32_t</span> id;</span><br><span class="line">-  <span class="keyword">char</span> username[COLUMN_USERNAME_SIZE];</span><br><span class="line">-  <span class="keyword">char</span> email[COLUMN_EMAIL_SIZE];</span><br><span class="line">+  <span class="keyword">char</span> username[COLUMN_USERNAME_SIZE + <span class="number">1</span>];</span><br><span class="line">+  <span class="keyword">char</span> email[COLUMN_EMAIL_SIZE + <span class="number">1</span>];</span><br><span class="line"> &#125; Row;</span><br><span class="line"></span><br><span class="line">@@ <span class="number">-150</span>,<span class="number">18</span> +<span class="number">152</span>,<span class="number">40</span> @@ <span class="function">MetaCommandResult <span class="title">do_meta_command</span><span class="params">(InputBuffer* input_buffer, Table *table)</span> </span>&#123;</span><br><span class="line">   &#125;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line">-<span class="function">PrepareResult <span class="title">prepare_statement</span><span class="params">(InputBuffer* input_buffer,</span></span></span><br><span class="line"><span class="function"><span class="params">-                                Statement* statement)</span> </span>&#123;</span><br><span class="line">-  <span class="keyword">if</span> (<span class="built_in">strncmp</span>(input_buffer-&gt;buffer, <span class="string">"insert"</span>, <span class="number">6</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">+<span class="function">PrepareResult <span class="title">prepare_insert</span><span class="params">(InputBuffer* input_buffer, Statement* statement)</span> </span>&#123;</span><br><span class="line">   statement-&gt;type = STATEMENT_INSERT;</span><br><span class="line">-  <span class="keyword">int</span> args_assigned = <span class="built_in">sscanf</span>(</span><br><span class="line">-     input_buffer-&gt;buffer, <span class="string">"insert %d %s %s"</span>, &amp;(statement-&gt;row_to_insert.id),</span><br><span class="line">-     statement-&gt;row_to_insert.username, statement-&gt;row_to_insert.email</span><br><span class="line">-     );</span><br><span class="line">-  <span class="keyword">if</span> (args_assigned &lt; <span class="number">3</span>) &#123;</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">char</span>* keyword = strtok(input_buffer-&gt;buffer, <span class="string">" "</span>);</span><br><span class="line">+  <span class="keyword">char</span>* id_string = strtok(<span class="literal">NULL</span>, <span class="string">" "</span>);</span><br><span class="line">+  <span class="keyword">char</span>* username = strtok(<span class="literal">NULL</span>, <span class="string">" "</span>);</span><br><span class="line">+  <span class="keyword">char</span>* email = strtok(<span class="literal">NULL</span>, <span class="string">" "</span>);</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">if</span> (id_string == <span class="literal">NULL</span> || username == <span class="literal">NULL</span> || email == <span class="literal">NULL</span>) &#123;</span><br><span class="line">      <span class="keyword">return</span> PREPARE_SYNTAX_ERROR;</span><br><span class="line">   &#125;</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">int</span> id = atoi(id_string);</span><br><span class="line">+  <span class="keyword">if</span> (id &lt; <span class="number">0</span>) &#123;</span><br><span class="line">+     <span class="keyword">return</span> PREPARE_NEGATIVE_ID;</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">if</span> (<span class="built_in">strlen</span>(username) &gt; COLUMN_USERNAME_SIZE) &#123;</span><br><span class="line">+     <span class="keyword">return</span> PREPARE_STRING_TOO_LONG;</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">if</span> (<span class="built_in">strlen</span>(email) &gt; COLUMN_EMAIL_SIZE) &#123;</span><br><span class="line">+     <span class="keyword">return</span> PREPARE_STRING_TOO_LONG;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  statement-&gt;row_to_insert.id = id;</span><br><span class="line">+  <span class="built_in">strcpy</span>(statement-&gt;row_to_insert.username, username);</span><br><span class="line">+  <span class="built_in">strcpy</span>(statement-&gt;row_to_insert.email, email);</span><br><span class="line">+</span><br><span class="line">   <span class="keyword">return</span> PREPARE_SUCCESS;</span><br><span class="line">+</span><br><span class="line">+&#125;</span><br><span class="line">+<span class="function">PrepareResult <span class="title">prepare_statement</span><span class="params">(InputBuffer* input_buffer,</span></span></span><br><span class="line"><span class="function"><span class="params">+                                Statement* statement)</span> </span>&#123;</span><br><span class="line">+  <span class="keyword">if</span> (<span class="built_in">strncmp</span>(input_buffer-&gt;buffer, <span class="string">"insert"</span>, <span class="number">6</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">+      <span class="keyword">return</span> prepare_insert(input_buffer, statement);</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">if</span> (<span class="built_in">strcmp</span>(input_buffer-&gt;buffer, <span class="string">"select"</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">     statement-&gt;type = STATEMENT_SELECT;</span><br><span class="line">@@ <span class="number">-223</span>,<span class="number">6</span> +<span class="number">247</span>,<span class="number">12</span> @@ <span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span>* argv[])</span> </span>&#123;</span><br><span class="line">     <span class="keyword">switch</span> (prepare_statement(input_buffer, &amp;statement)) &#123;</span><br><span class="line">       <span class="keyword">case</span> (PREPARE_SUCCESS):</span><br><span class="line">         <span class="keyword">break</span>;</span><br><span class="line">+      <span class="keyword">case</span> (PREPARE_NEGATIVE_ID):</span><br><span class="line">+	<span class="built_in">printf</span>(<span class="string">"ID must be positive.\n"</span>);</span><br><span class="line">+	<span class="keyword">continue</span>;</span><br><span class="line">+      <span class="keyword">case</span> (PREPARE_STRING_TOO_LONG):</span><br><span class="line">+	<span class="built_in">printf</span>(<span class="string">"String is too long.\n"</span>);</span><br><span class="line">+	<span class="keyword">continue</span>;</span><br><span class="line">       <span class="keyword">case</span> (PREPARE_SYNTAX_ERROR):</span><br><span class="line"> 	<span class="built_in">printf</span>(<span class="string">"Syntax error. Could not parse statement.\n"</span>);</span><br><span class="line"> 	<span class="keyword">continue</span>;</span><br></pre></td></tr></table></figure>
+<p>以及我们增加的测试:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br></pre></td><td class="code"><pre><span class="line">+describe &apos;database&apos; do</span><br><span class="line">+  def run_script(commands)</span><br><span class="line">+    raw_output = nil</span><br><span class="line">+    IO.popen(&quot;./db&quot;, &quot;r+&quot;) do |pipe|</span><br><span class="line">+      commands.each do |command|</span><br><span class="line">+        pipe.puts command</span><br><span class="line">+      end</span><br><span class="line">+</span><br><span class="line">+      pipe.close_write</span><br><span class="line">+</span><br><span class="line">+      # Read entire output</span><br><span class="line">+      raw_output = pipe.gets(nil)</span><br><span class="line">+    end</span><br><span class="line">+    raw_output.split(&quot;\n&quot;)</span><br><span class="line">+  end</span><br><span class="line">+</span><br><span class="line">+  it &apos;inserts and retrieves a row&apos; do</span><br><span class="line">+    result = run_script([</span><br><span class="line">+      &quot;insert 1 user1 person1@example.com&quot;,</span><br><span class="line">+      &quot;select&quot;,</span><br><span class="line">+      &quot;.exit&quot;,</span><br><span class="line">+    ])</span><br><span class="line">+    expect(result).to match_array([</span><br><span class="line">+      &quot;db &gt; Executed.&quot;,</span><br><span class="line">+      &quot;db &gt; (1, user1, person1@example.com)&quot;,</span><br><span class="line">+      &quot;Executed.&quot;,</span><br><span class="line">+      &quot;db &gt; &quot;,</span><br><span class="line">+    ])</span><br><span class="line">+  end</span><br><span class="line">+</span><br><span class="line">+  it &apos;prints error message when table is full&apos; do</span><br><span class="line">+    script = (1..1401).map do |i|</span><br><span class="line">+      &quot;insert #&#123;i&#125; user#&#123;i&#125; person#&#123;i&#125;@example.com&quot;</span><br><span class="line">+    end</span><br><span class="line">+    script &lt;&lt; &quot;.exit&quot;</span><br><span class="line">+    result = run_script(script)</span><br><span class="line">+    expect(result[-2]).to eq(&apos;db &gt; Error: Table full.&apos;)</span><br><span class="line">+  end</span><br><span class="line">+</span><br><span class="line">+  it &apos;allows inserting strings that are the maximum length&apos; do</span><br><span class="line">+    long_username = &quot;a&quot;*32</span><br><span class="line">+    long_email = &quot;a&quot;*255</span><br><span class="line">+    script = [</span><br><span class="line">+      &quot;insert 1 #&#123;long_username&#125; #&#123;long_email&#125;&quot;,</span><br><span class="line">+      &quot;select&quot;,</span><br><span class="line">+      &quot;.exit&quot;,</span><br><span class="line">+    ]</span><br><span class="line">+    result = run_script(script)</span><br><span class="line">+    expect(result).to match_array([</span><br><span class="line">+      &quot;db &gt; Executed.&quot;,</span><br><span class="line">+      &quot;db &gt; (1, #&#123;long_username&#125;, #&#123;long_email&#125;)&quot;,</span><br><span class="line">+      &quot;Executed.&quot;,</span><br><span class="line">+      &quot;db &gt; &quot;,</span><br><span class="line">+    ])</span><br><span class="line">+  end</span><br><span class="line">+</span><br><span class="line">+  it &apos;prints error message if strings are too long&apos; do</span><br><span class="line">+    long_username = &quot;a&quot;*33</span><br><span class="line">+    long_email = &quot;a&quot;*256</span><br><span class="line">+    script = [</span><br><span class="line">+      &quot;insert 1 #&#123;long_username&#125; #&#123;long_email&#125;&quot;,</span><br><span class="line">+      &quot;select&quot;,</span><br><span class="line">+      &quot;.exit&quot;,</span><br><span class="line">+    ]</span><br><span class="line">+    result = run_script(script)</span><br><span class="line">+    expect(result).to match_array([</span><br><span class="line">+      &quot;db &gt; String is too long.&quot;,</span><br><span class="line">+      &quot;db &gt; Executed.&quot;,</span><br><span class="line">+      &quot;db &gt; &quot;,</span><br><span class="line">+    ])</span><br><span class="line">+  end</span><br><span class="line">+</span><br><span class="line">+  it &apos;prints an error message if id is negative&apos; do</span><br><span class="line">+    script = [</span><br><span class="line">+      &quot;insert -1 cstack foo@bar.com&quot;,</span><br><span class="line">+      &quot;select&quot;,</span><br><span class="line">+      &quot;.exit&quot;,</span><br><span class="line">+    ]</span><br><span class="line">+    result = run_script(script)</span><br><span class="line">+    expect(result).to match_array([</span><br><span class="line">+      &quot;db &gt; ID must be positive.&quot;,</span><br><span class="line">+      &quot;db &gt; Executed.&quot;,</span><br><span class="line">+      &quot;db &gt; &quot;,</span><br><span class="line">+    ])</span><br><span class="line">+  end</span><br><span class="line">+end</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/翻译/" rel="tag"># 翻译</a>
+              <a href="/tags/Database/" rel="tag"># Database</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/06/057-simple-database-3/" rel="prev" title="Let's Build a Simple Database - An In-Memory,Append-Only,Sinle-Table Database">
+      <i class="fa fa-chevron-left"></i> Let's Build a Simple Database - An In-Memory,Append-Only,Sinle-Table Database
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/01/29/059-2021-year-end-summary/" rel="next" title="2021 年终总结">
+      2021 年终总结 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

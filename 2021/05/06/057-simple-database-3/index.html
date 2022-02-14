@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="原文地址：https://cstack.github.io/db_tutorial/parts/part3.html原文作者： cstack译者：Win-Man  我们通过在我们数据库上设置很多限制，从一个小的数据库开始。这一节，我们会做这些内容：  支持两种操作：插入一行数据和查询出所有数据行 将数据存储在内存中（不持久化到硬盘上） 支持单个、表结构固定的表  我们表结构固定的表示用于存储用户">
+<meta name="keywords" content="翻译,Database">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Let&#39;s Build a Simple Database - An In-Memory,Append-Only,Sinle-Table Database">
+<meta property="og:url" content="http://yoursite.com/2021/05/06/057-simple-database-3/index.html">
+<meta property="og:site_name" content="Win-Man&#39;s Blog">
+<meta property="og:description" content="原文地址：https://cstack.github.io/db_tutorial/parts/part3.html原文作者： cstack译者：Win-Man  我们通过在我们数据库上设置很多限制，从一个小的数据库开始。这一节，我们会做这些内容：  支持两种操作：插入一行数据和查询出所有数据行 将数据存储在内存中（不持久化到硬盘上） 支持单个、表结构固定的表  我们表结构固定的表示用于存储用户">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2022-02-14T15:12:10.110Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Let&#39;s Build a Simple Database - An In-Memory,Append-Only,Sinle-Table Database">
+<meta name="twitter:description" content="原文地址：https://cstack.github.io/db_tutorial/parts/part3.html原文作者： cstack译者：Win-Man  我们通过在我们数据库上设置很多限制，从一个小的数据库开始。这一节，我们会做这些内容：  支持两种操作：插入一行数据和查询出所有数据行 将数据存储在内存中（不持久化到硬盘上） 支持单个、表结构固定的表  我们表结构固定的表示用于存储用户">
+
+<link rel="canonical" href="http://yoursite.com/2021/05/06/057-simple-database-3/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'default'
+  };
+</script>
+
+  <title>Let's Build a Simple Database - An In-Memory,Append-Only,Sinle-Table Database | Win-Man's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Win-Man's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="default">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/05/06/057-simple-database-3/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/pig.jpeg">
+      <meta itemprop="name" content="Win-Man">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Win-Man's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Let's Build a Simple Database - An In-Memory,Append-Only,Sinle-Table Database
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-05-06 21:12:13" itemprop="dateCreated datePublished" datetime="2021-05-06T21:12:13+00:00">2021-05-06</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-02-14 15:12:10" itemprop="dateModified" datetime="2022-02-14T15:12:10+00:00">2022-02-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/翻译/" itemprop="url" rel="index"><span itemprop="name">翻译</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p>原文地址：<a href="https://cstack.github.io/db_tutorial/parts/part3.html" target="_blank" rel="noopener">https://cstack.github.io/db_tutorial/parts/part3.html</a><br>原文作者： <a href="https://github.com/cstack" target="_blank" rel="noopener">cstack</a><br>译者：<a href="https://github.com/Win-Man" target="_blank" rel="noopener">Win-Man</a></p>
+</blockquote>
+<p>我们通过在我们数据库上设置很多限制，从一个小的数据库开始。这一节，我们会做这些内容：</p>
+<ul>
+<li>支持两种操作：插入一行数据和查询出所有数据行</li>
+<li>将数据存储在内存中（不持久化到硬盘上）</li>
+<li>支持单个、表结构固定的表</li>
+</ul>
+<p>我们表结构固定的表示用于存储用户的，结构是：</p>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>integer</td>
+</tr>
+<tr>
+<td>username</td>
+<td>varchar(32)</td>
+</tr>
+<tr>
+<td>email</td>
+<td>varchar(255)</td>
+</tr>
+</tbody>
+</table>
+<p>这是一个简单的表结构，但是可以让我们去支持多种数据格式和多种数据大小。</p>
+<p>insert 语句会类似于这个形式</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">insert</span> <span class="number">1</span> cstack foo@bar.com</span><br></pre></td></tr></table></figure>
+<p>这意味着我们需要更新我们的 <code>prepare_statement</code> 函数去解析参数</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">   <span class="keyword">if</span> (<span class="built_in">strncmp</span>(input_buffer-&gt;buffer, <span class="string">"insert"</span>, <span class="number">6</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">     statement-&gt;type = STATEMENT_INSERT;</span><br><span class="line">+    <span class="keyword">int</span> args_assigned = <span class="built_in">sscanf</span>(</span><br><span class="line">+        input_buffer-&gt;buffer, <span class="string">"insert %d %s %s"</span>, &amp;(statement-&gt;row_to_insert.id),</span><br><span class="line">+        statement-&gt;row_to_insert.username, statement-&gt;row_to_insert.email);</span><br><span class="line">+    <span class="keyword">if</span> (args_assigned &lt; <span class="number">3</span>) &#123;</span><br><span class="line">+      <span class="keyword">return</span> PREPARE_SYNTAX_ERROR;</span><br><span class="line">+    &#125;</span><br><span class="line">     <span class="keyword">return</span> PREPARE_SUCCESS;</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">if</span> (<span class="built_in">strcmp</span>(input_buffer-&gt;buffer, <span class="string">"select"</span>) == <span class="number">0</span>) &#123;</span><br></pre></td></tr></table></figure>
+<p>我们将这些解析出来的参数存储到一个 Row 数据结构中：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">+<span class="meta">#<span class="meta-keyword">define</span> COLUMN_USERNAME_SIZE 32</span></span><br><span class="line">+<span class="meta">#<span class="meta-keyword">define</span> COLUMN_EMAIL_SIZE 255</span></span><br><span class="line">+<span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">+  <span class="keyword">uint32_t</span> id;</span><br><span class="line">+  <span class="keyword">char</span> username[COLUMN_USERNAME_SIZE];</span><br><span class="line">+  <span class="keyword">char</span> email[COLUMN_EMAIL_SIZE];</span><br><span class="line">+&#125; Row;</span><br><span class="line">+</span><br><span class="line"> <span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">   StatementType type;</span><br><span class="line">+  Row row_to_insert;  <span class="comment">// only used by insert statement</span></span><br><span class="line"> &#125; Statement;</span><br></pre></td></tr></table></figure>
+<p>现在我们需要将 Row 结构体中的数据拷贝到能代表 table 数据的结构中。 SQLite 使用了 B-tree 数据结构，可以提升查询、插入、删除的速度。我们开始的会更简单一点。类似于 B-tree, 会将行记录分组到 page 页上，但是是将这些数据页以数据形式存储，而不是以树的形式存储。</p>
+<p>我们的计划是：</p>
+<ul>
+<li>将数据行存储在内存页中</li>
+<li>每个数据页可以存储尽可能多的行</li>
+<li>记录行被序列化成一种压缩的形式</li>
+<li>数据页只有在需要的时候才会分配</li>
+<li>保持一个固定大小的数据页指针数组</li>
+</ul>
+<p>首先，我们需要定义一下一行记录的压缩格式是怎么样的：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">+<span class="meta">#<span class="meta-keyword">define</span> size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)-&gt;Attribute)</span></span><br><span class="line">+</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> ID_SIZE = size_of_attribute(Row, id);</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> USERNAME_SIZE = size_of_attribute(Row, username);</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> EMAIL_SIZE = size_of_attribute(Row, email);</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> ID_OFFSET = <span class="number">0</span>;</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> USERNAME_OFFSET = ID_OFFSET + ID_SIZE;</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE;</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;</span><br></pre></td></tr></table></figure>
+<p>这意味着被序列化之后的一行数据会是这样的：</p>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>size(bytes)</th>
+<th>offset</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>4</td>
+<td>0</td>
+</tr>
+<tr>
+<td>username</td>
+<td>32</td>
+<td>4</td>
+</tr>
+<tr>
+<td>email</td>
+<td>255</td>
+<td>36</td>
+</tr>
+<tr>
+<td>total</td>
+<td>291</td>
+</tr>
+</tbody>
+</table>
+<p>我们也需要将编写转换、反转换的代码.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">+<span class="function"><span class="keyword">void</span> <span class="title">serialize_row</span><span class="params">(Row* source, <span class="keyword">void</span>* destination)</span> </span>&#123;</span><br><span class="line">+  <span class="built_in">memcpy</span>(destination + ID_OFFSET, &amp;(source-&gt;id), ID_SIZE);</span><br><span class="line">+  <span class="built_in">memcpy</span>(destination + USERNAME_OFFSET, &amp;(source-&gt;username), USERNAME_SIZE);</span><br><span class="line">+  <span class="built_in">memcpy</span>(destination + EMAIL_OFFSET, &amp;(source-&gt;email), EMAIL_SIZE);</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function"><span class="keyword">void</span> <span class="title">deserialize_row</span><span class="params">(<span class="keyword">void</span>* source, Row* destination)</span> </span>&#123;</span><br><span class="line">+  <span class="built_in">memcpy</span>(&amp;(destination-&gt;id), source + ID_OFFSET, ID_SIZE);</span><br><span class="line">+  <span class="built_in">memcpy</span>(&amp;(destination-&gt;username), source + USERNAME_OFFSET, USERNAME_SIZE);</span><br><span class="line">+  <span class="built_in">memcpy</span>(&amp;(destination-&gt;email), source + EMAIL_OFFSET, EMAIL_SIZE);</span><br><span class="line">+&#125;</span><br></pre></td></tr></table></figure>
+<p>接着，Table 的数据结构就是一个数据页指针和记录这个表内有多少数据：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> PAGE_SIZE = <span class="number">4096</span>;</span><br><span class="line">+<span class="meta">#<span class="meta-keyword">define</span> TABLE_MAX_PAGES 100</span></span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;</span><br><span class="line">+</span><br><span class="line">+<span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">+  <span class="keyword">uint32_t</span> num_rows;</span><br><span class="line">+  <span class="keyword">void</span>* pages[TABLE_MAX_PAGES];</span><br><span class="line">+&#125; Table;</span><br></pre></td></tr></table></figure>
+<p>我将我们数据页的大小设置为了 4KB ，因为这也是大多数操作系统使用的数据页大小。意味着我们的使用的数据页大小和操作系统数据页大小是一致的。操作系统会将数据页作为一个整体进行交换，而不是将他们拆散成多个数据页。</p>
+<p>我随意设置了一个限制，限制我们只能分配 100 个数据页。当我们转成树结构的时候，我们数据库的最大大小受限于单个文件的大小（尽管我们还是有设置我们在内存中保留多少数据页）</p>
+<p>一行数据不能跨数据页存储。因为相邻的数据页可能不会同时存在在内存中，这个限制可以让读写行数据更加容易。</p>
+<p>说到这个，看一下我们是如果在内存中定位到需要读取的某一行数据的：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">+<span class="function"><span class="keyword">void</span>* <span class="title">row_slot</span><span class="params">(Table* table, <span class="keyword">uint32_t</span> row_num)</span> </span>&#123;</span><br><span class="line">+  <span class="keyword">uint32_t</span> page_num = row_num / ROWS_PER_PAGE;</span><br><span class="line">+  <span class="keyword">void</span>* page = table-&gt;pages[page_num];</span><br><span class="line">+  <span class="keyword">if</span> (page == <span class="literal">NULL</span>) &#123;</span><br><span class="line">+    <span class="comment">// Allocate memory only when we try to access page</span></span><br><span class="line">+    page = table-&gt;pages[page_num] = <span class="built_in">malloc</span>(PAGE_SIZE);</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">uint32_t</span> row_offset = row_num % ROWS_PER_PAGE;</span><br><span class="line">+  <span class="keyword">uint32_t</span> byte_offset = row_offset * ROW_SIZE;</span><br><span class="line">+  <span class="keyword">return</span> page + byte_offset;</span><br><span class="line">+&#125;</span><br></pre></td></tr></table></figure>
+<p>现在我们可以让 execute_statement 从表结构体中读取或者写入数据了：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">-<span class="function"><span class="keyword">void</span> <span class="title">execute_statement</span><span class="params">(Statement* statement)</span> </span>&#123;</span><br><span class="line">+<span class="function">ExecuteResult <span class="title">execute_insert</span><span class="params">(Statement* statement, Table* table)</span> </span>&#123;</span><br><span class="line">+  <span class="keyword">if</span> (table-&gt;num_rows &gt;= TABLE_MAX_ROWS) &#123;</span><br><span class="line">+    <span class="keyword">return</span> EXECUTE_TABLE_FULL;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  Row* row_to_insert = &amp;(statement-&gt;row_to_insert);</span><br><span class="line">+</span><br><span class="line">+  serialize_row(row_to_insert, row_slot(table, table-&gt;num_rows));</span><br><span class="line">+  table-&gt;num_rows += <span class="number">1</span>;</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">return</span> EXECUTE_SUCCESS;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function">ExecuteResult <span class="title">execute_select</span><span class="params">(Statement* statement, Table* table)</span> </span>&#123;</span><br><span class="line">+  Row row;</span><br><span class="line">+  <span class="keyword">for</span> (<span class="keyword">uint32_t</span> i = <span class="number">0</span>; i &lt; table-&gt;num_rows; i++) &#123;</span><br><span class="line">+    deserialize_row(row_slot(table, i), &amp;row);</span><br><span class="line">+    print_row(&amp;row);</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">return</span> EXECUTE_SUCCESS;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function">ExecuteResult <span class="title">execute_statement</span><span class="params">(Statement* statement, Table* table)</span> </span>&#123;</span><br><span class="line">   <span class="keyword">switch</span> (statement-&gt;type) &#123;</span><br><span class="line">     <span class="keyword">case</span> (STATEMENT_INSERT):</span><br><span class="line">-      <span class="built_in">printf</span>(<span class="string">"This is where we would do an insert.\n"</span>);</span><br><span class="line">-      <span class="keyword">break</span>;</span><br><span class="line">+      <span class="keyword">return</span> execute_insert(statement, table);</span><br><span class="line">     <span class="keyword">case</span> (STATEMENT_SELECT):</span><br><span class="line">-      <span class="built_in">printf</span>(<span class="string">"This is where we would do a select.\n"</span>);</span><br><span class="line">-      <span class="keyword">break</span>;</span><br><span class="line">+      <span class="keyword">return</span> execute_select(statement, table);</span><br><span class="line">   &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>最后，我们需要初始化一下表，创建释放各自内存的函数以及处理更多错误的情况：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">+ <span class="function">Table* <span class="title">new_table</span><span class="params">()</span> </span>&#123;</span><br><span class="line">+  Table* table = <span class="built_in">malloc</span>(<span class="keyword">sizeof</span>(Table));</span><br><span class="line">+  table-&gt;num_rows = <span class="number">0</span>;</span><br><span class="line">+  <span class="keyword">for</span> (<span class="keyword">uint32_t</span> i = <span class="number">0</span>; i &lt; TABLE_MAX_PAGES; i++) &#123;</span><br><span class="line">+     table-&gt;pages[i] = <span class="literal">NULL</span>;</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">return</span> table;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function"><span class="keyword">void</span> <span class="title">free_table</span><span class="params">(Table* table)</span> </span>&#123;</span><br><span class="line">+    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; table-&gt;pages[i]; i++) &#123;</span><br><span class="line">+	<span class="built_in">free</span>(table-&gt;pages[i]);</span><br><span class="line">+    &#125;</span><br><span class="line">+    <span class="built_in">free</span>(table);</span><br><span class="line">+&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span>* argv[])</span> </span>&#123;</span><br><span class="line">+  Table* table = new_table();</span><br><span class="line">   InputBuffer* input_buffer = new_input_buffer();</span><br><span class="line">   <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">     print_prompt();</span><br><span class="line">@@ <span class="number">-105</span>,<span class="number">13</span> +<span class="number">203</span>,<span class="number">22</span> @@ <span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span>* argv[])</span> </span>&#123;</span><br><span class="line">     <span class="keyword">switch</span> (prepare_statement(input_buffer, &amp;statement)) &#123;</span><br><span class="line">       <span class="keyword">case</span> (PREPARE_SUCCESS):</span><br><span class="line">         <span class="keyword">break</span>;</span><br><span class="line">+      <span class="keyword">case</span> (PREPARE_SYNTAX_ERROR):</span><br><span class="line">+        <span class="built_in">printf</span>(<span class="string">"Syntax error. Could not parse statement.\n"</span>);</span><br><span class="line">+        <span class="keyword">continue</span>;</span><br><span class="line">       <span class="keyword">case</span> (PREPARE_UNRECOGNIZED_STATEMENT):</span><br><span class="line">         <span class="built_in">printf</span>(<span class="string">"Unrecognized keyword at start of '%s'.\n"</span>,</span><br><span class="line">                input_buffer-&gt;buffer);</span><br><span class="line">         <span class="keyword">continue</span>;</span><br><span class="line">     &#125;</span><br><span class="line"></span><br><span class="line">-    execute_statement(&amp;statement);</span><br><span class="line">-    <span class="built_in">printf</span>(<span class="string">"Executed.\n"</span>);</span><br><span class="line">+    <span class="keyword">switch</span> (execute_statement(&amp;statement, table)) &#123;</span><br><span class="line">+      <span class="keyword">case</span> (EXECUTE_SUCCESS):</span><br><span class="line">+        <span class="built_in">printf</span>(<span class="string">"Executed.\n"</span>);</span><br><span class="line">+        <span class="keyword">break</span>;</span><br><span class="line">+      <span class="keyword">case</span> (EXECUTE_TABLE_FULL):</span><br><span class="line">+        <span class="built_in">printf</span>(<span class="string">"Error: Table full.\n"</span>);</span><br><span class="line">+        <span class="keyword">break</span>;</span><br><span class="line">+    &#125;</span><br><span class="line">   &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>经过这些修改，我们就可以真正的在我们的数据库中存储数据了</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">~ ./db</span><br><span class="line">db &gt; insert 1 cstack foo@bar.com</span><br><span class="line">Executed.</span><br><span class="line">db &gt; insert 2 bob bob@example.com</span><br><span class="line">Executed.</span><br><span class="line">db &gt; select</span><br><span class="line">(1, cstack, foo@bar.com)</span><br><span class="line">(2, bob, bob@example.com)</span><br><span class="line">Executed.</span><br><span class="line">db &gt; insert foo bar 1</span><br><span class="line">Syntax error. Could not parse statement.</span><br><span class="line">db &gt; .exit</span><br></pre></td></tr></table></figure>
+<p>这时候是写一些测试的好时候了，因为以下几个原因：</p>
+<ul>
+<li>我们计划修改数据结构去存储我们的表，有测试的话可以方便捕捉到回归错误</li>
+<li>有一些边缘 case 我们没有手动测试（比如填满一张表）</li>
+</ul>
+<p>我们会在下一个部分做这些内容。现在先看下这个部分完整修改的内容：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br></pre></td><td class="code"><pre><span class="line">@@ <span class="number">-2</span>,<span class="number">6</span> +<span class="number">2</span>,<span class="number">7</span> @@</span><br><span class="line"> <span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"> <span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"> <span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line">+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdint.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">   <span class="keyword">char</span>* buffer;</span><br><span class="line">@@ <span class="number">-10</span>,<span class="number">6</span> +<span class="number">11</span>,<span class="number">105</span> @@ <span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line"> &#125; InputBuffer;</span><br><span class="line"></span><br><span class="line">+<span class="keyword">typedef</span> <span class="keyword">enum</span> &#123; EXECUTE_SUCCESS, EXECUTE_TABLE_FULL &#125; ExecuteResult;</span><br><span class="line">+</span><br><span class="line">+<span class="keyword">typedef</span> <span class="keyword">enum</span> &#123;</span><br><span class="line">+  META_COMMAND_SUCCESS,</span><br><span class="line">+  META_COMMAND_UNRECOGNIZED_COMMAND</span><br><span class="line">+&#125; MetaCommandResult;</span><br><span class="line">+</span><br><span class="line">+<span class="keyword">typedef</span> <span class="keyword">enum</span> &#123;</span><br><span class="line">+  PREPARE_SUCCESS,</span><br><span class="line">+  PREPARE_SYNTAX_ERROR,</span><br><span class="line">+  PREPARE_UNRECOGNIZED_STATEMENT</span><br><span class="line">+ &#125; PrepareResult;</span><br><span class="line">+</span><br><span class="line">+<span class="keyword">typedef</span> <span class="keyword">enum</span> &#123; STATEMENT_INSERT, STATEMENT_SELECT &#125; StatementType;</span><br><span class="line">+</span><br><span class="line">+<span class="meta">#<span class="meta-keyword">define</span> COLUMN_USERNAME_SIZE 32</span></span><br><span class="line">+<span class="meta">#<span class="meta-keyword">define</span> COLUMN_EMAIL_SIZE 255</span></span><br><span class="line">+<span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">+  <span class="keyword">uint32_t</span> id;</span><br><span class="line">+  <span class="keyword">char</span> username[COLUMN_USERNAME_SIZE];</span><br><span class="line">+  <span class="keyword">char</span> email[COLUMN_EMAIL_SIZE];</span><br><span class="line">+&#125; Row;</span><br><span class="line">+</span><br><span class="line">+<span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">+  StatementType type;</span><br><span class="line">+  Row row_to_insert; <span class="comment">//only used by insert statement</span></span><br><span class="line">+&#125; Statement;</span><br><span class="line">+</span><br><span class="line">+<span class="meta">#<span class="meta-keyword">define</span> size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)-&gt;Attribute)</span></span><br><span class="line">+</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> ID_SIZE = size_of_attribute(Row, id);</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> USERNAME_SIZE = size_of_attribute(Row, username);</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> EMAIL_SIZE = size_of_attribute(Row, email);</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> ID_OFFSET = <span class="number">0</span>;</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> USERNAME_OFFSET = ID_OFFSET + ID_SIZE;</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE;</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;</span><br><span class="line">+</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> PAGE_SIZE = <span class="number">4096</span>;</span><br><span class="line">+<span class="meta">#<span class="meta-keyword">define</span> TABLE_MAX_PAGES 100</span></span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;</span><br><span class="line">+<span class="keyword">const</span> <span class="keyword">uint32_t</span> TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;</span><br><span class="line">+</span><br><span class="line">+<span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">+  <span class="keyword">uint32_t</span> num_rows;</span><br><span class="line">+  <span class="keyword">void</span>* pages[TABLE_MAX_PAGES];</span><br><span class="line">+&#125; Table;</span><br><span class="line">+</span><br><span class="line">+<span class="function"><span class="keyword">void</span> <span class="title">print_row</span><span class="params">(Row* row)</span> </span>&#123;</span><br><span class="line">+  <span class="built_in">printf</span>(<span class="string">"(%d, %s, %s)\n"</span>, row-&gt;id, row-&gt;username, row-&gt;email);</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function"><span class="keyword">void</span> <span class="title">serialize_row</span><span class="params">(Row* source, <span class="keyword">void</span>* destination)</span> </span>&#123;</span><br><span class="line">+  <span class="built_in">memcpy</span>(destination + ID_OFFSET, &amp;(source-&gt;id), ID_SIZE);</span><br><span class="line">+  <span class="built_in">memcpy</span>(destination + USERNAME_OFFSET, &amp;(source-&gt;username), USERNAME_SIZE);</span><br><span class="line">+  <span class="built_in">memcpy</span>(destination + EMAIL_OFFSET, &amp;(source-&gt;email), EMAIL_SIZE);</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function"><span class="keyword">void</span> <span class="title">deserialize_row</span><span class="params">(<span class="keyword">void</span> *source, Row* destination)</span> </span>&#123;</span><br><span class="line">+  <span class="built_in">memcpy</span>(&amp;(destination-&gt;id), source + ID_OFFSET, ID_SIZE);</span><br><span class="line">+  <span class="built_in">memcpy</span>(&amp;(destination-&gt;username), source + USERNAME_OFFSET, USERNAME_SIZE);</span><br><span class="line">+  <span class="built_in">memcpy</span>(&amp;(destination-&gt;email), source + EMAIL_OFFSET, EMAIL_SIZE);</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function"><span class="keyword">void</span>* <span class="title">row_slot</span><span class="params">(Table* table, <span class="keyword">uint32_t</span> row_num)</span> </span>&#123;</span><br><span class="line">+  <span class="keyword">uint32_t</span> page_num = row_num / ROWS_PER_PAGE;</span><br><span class="line">+  <span class="keyword">void</span> *page = table-&gt;pages[page_num];</span><br><span class="line">+  <span class="keyword">if</span> (page == <span class="literal">NULL</span>) &#123;</span><br><span class="line">+     <span class="comment">// Allocate memory only when we try to access page</span></span><br><span class="line">+     page = table-&gt;pages[page_num] = <span class="built_in">malloc</span>(PAGE_SIZE);</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">uint32_t</span> row_offset = row_num % ROWS_PER_PAGE;</span><br><span class="line">+  <span class="keyword">uint32_t</span> byte_offset = row_offset * ROW_SIZE;</span><br><span class="line">+  <span class="keyword">return</span> page + byte_offset;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function">Table* <span class="title">new_table</span><span class="params">()</span> </span>&#123;</span><br><span class="line">+  Table* table = <span class="built_in">malloc</span>(<span class="keyword">sizeof</span>(Table));</span><br><span class="line">+  table-&gt;num_rows = <span class="number">0</span>;</span><br><span class="line">+  <span class="keyword">for</span> (<span class="keyword">uint32_t</span> i = <span class="number">0</span>; i &lt; TABLE_MAX_PAGES; i++) &#123;</span><br><span class="line">+     table-&gt;pages[i] = <span class="literal">NULL</span>;</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">return</span> table;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function"><span class="keyword">void</span> <span class="title">free_table</span><span class="params">(Table* table)</span> </span>&#123;</span><br><span class="line">+  <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; table-&gt;pages[i]; i++) &#123;</span><br><span class="line">+     <span class="built_in">free</span>(table-&gt;pages[i]);</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="built_in">free</span>(table);</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line"> <span class="function">InputBuffer* <span class="title">new_input_buffer</span><span class="params">()</span> </span>&#123;</span><br><span class="line">   InputBuffer* input_buffer = <span class="built_in">malloc</span>(<span class="keyword">sizeof</span>(InputBuffer));</span><br><span class="line">   input_buffer-&gt;buffer = <span class="literal">NULL</span>;</span><br><span class="line">@@ <span class="number">-40</span>,<span class="number">17</span> +<span class="number">140</span>,<span class="number">105</span> @@ <span class="function"><span class="keyword">void</span> <span class="title">close_input_buffer</span><span class="params">(InputBuffer* input_buffer)</span> </span>&#123;</span><br><span class="line">     <span class="built_in">free</span>(input_buffer);</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line">+<span class="function">MetaCommandResult <span class="title">do_meta_command</span><span class="params">(InputBuffer* input_buffer, Table *table)</span> </span>&#123;</span><br><span class="line">+  <span class="keyword">if</span> (<span class="built_in">strcmp</span>(input_buffer-&gt;buffer, <span class="string">".exit"</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">+    close_input_buffer(input_buffer);</span><br><span class="line">+    free_table(table);</span><br><span class="line">+    <span class="built_in">exit</span>(EXIT_SUCCESS);</span><br><span class="line">+  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">+    <span class="keyword">return</span> META_COMMAND_UNRECOGNIZED_COMMAND;</span><br><span class="line">+  &#125;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function">PrepareResult <span class="title">prepare_statement</span><span class="params">(InputBuffer* input_buffer,</span></span></span><br><span class="line"><span class="function"><span class="params">+                                Statement* statement)</span> </span>&#123;</span><br><span class="line">+  <span class="keyword">if</span> (<span class="built_in">strncmp</span>(input_buffer-&gt;buffer, <span class="string">"insert"</span>, <span class="number">6</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">+    statement-&gt;type = STATEMENT_INSERT;</span><br><span class="line">+    <span class="keyword">int</span> args_assigned = <span class="built_in">sscanf</span>(</span><br><span class="line">+	input_buffer-&gt;buffer, <span class="string">"insert %d %s %s"</span>, &amp;(statement-&gt;row_to_insert.id),</span><br><span class="line">+	statement-&gt;row_to_insert.username, statement-&gt;row_to_insert.email</span><br><span class="line">+	);</span><br><span class="line">+    <span class="keyword">if</span> (args_assigned &lt; <span class="number">3</span>) &#123;</span><br><span class="line">+	<span class="keyword">return</span> PREPARE_SYNTAX_ERROR;</span><br><span class="line">+    &#125;</span><br><span class="line">+    <span class="keyword">return</span> PREPARE_SUCCESS;</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">if</span> (<span class="built_in">strcmp</span>(input_buffer-&gt;buffer, <span class="string">"select"</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">+    statement-&gt;type = STATEMENT_SELECT;</span><br><span class="line">+    <span class="keyword">return</span> PREPARE_SUCCESS;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">return</span> PREPARE_UNRECOGNIZED_STATEMENT;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function">ExecuteResult <span class="title">execute_insert</span><span class="params">(Statement* statement, Table* table)</span> </span>&#123;</span><br><span class="line">+  <span class="keyword">if</span> (table-&gt;num_rows &gt;= TABLE_MAX_ROWS) &#123;</span><br><span class="line">+     <span class="keyword">return</span> EXECUTE_TABLE_FULL;</span><br><span class="line">+  &#125;</span><br><span class="line">+</span><br><span class="line">+  Row* row_to_insert = &amp;(statement-&gt;row_to_insert);</span><br><span class="line">+</span><br><span class="line">+  serialize_row(row_to_insert, row_slot(table, table-&gt;num_rows));</span><br><span class="line">+  table-&gt;num_rows += <span class="number">1</span>;</span><br><span class="line">+</span><br><span class="line">+  <span class="keyword">return</span> EXECUTE_SUCCESS;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function">ExecuteResult <span class="title">execute_select</span><span class="params">(Statement* statement, Table* table)</span> </span>&#123;</span><br><span class="line">+  Row row;</span><br><span class="line">+  <span class="keyword">for</span> (<span class="keyword">uint32_t</span> i = <span class="number">0</span>; i &lt; table-&gt;num_rows; i++) &#123;</span><br><span class="line">+     deserialize_row(row_slot(table, i), &amp;row);</span><br><span class="line">+     print_row(&amp;row);</span><br><span class="line">+  &#125;</span><br><span class="line">+  <span class="keyword">return</span> EXECUTE_SUCCESS;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line">+<span class="function">ExecuteResult <span class="title">execute_statement</span><span class="params">(Statement* statement, Table *table)</span> </span>&#123;</span><br><span class="line">+  <span class="keyword">switch</span> (statement-&gt;type) &#123;</span><br><span class="line">+    <span class="keyword">case</span> (STATEMENT_INSERT):</span><br><span class="line">+       	<span class="keyword">return</span> execute_insert(statement, table);</span><br><span class="line">+    <span class="keyword">case</span> (STATEMENT_SELECT):</span><br><span class="line">+	<span class="keyword">return</span> execute_select(statement, table);</span><br><span class="line">+  &#125;</span><br><span class="line">+&#125;</span><br><span class="line">+</span><br><span class="line"> <span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span>* argv[])</span> </span>&#123;</span><br><span class="line">+  Table* table = new_table();</span><br><span class="line">   InputBuffer* input_buffer = new_input_buffer();</span><br><span class="line">   <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">     print_prompt();</span><br><span class="line">     read_input(input_buffer);</span><br><span class="line"></span><br><span class="line">-    <span class="keyword">if</span> (<span class="built_in">strcmp</span>(input_buffer-&gt;buffer, <span class="string">".exit"</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">-      close_input_buffer(input_buffer);</span><br><span class="line">-      <span class="built_in">exit</span>(EXIT_SUCCESS);</span><br><span class="line">-    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">-      <span class="built_in">printf</span>(<span class="string">"Unrecognized command '%s'.\n"</span>, input_buffer-&gt;buffer);</span><br><span class="line">+    <span class="keyword">if</span> (input_buffer-&gt;buffer[<span class="number">0</span>] == <span class="string">'.'</span>) &#123;</span><br><span class="line">+      <span class="keyword">switch</span> (do_meta_command(input_buffer, table)) &#123;</span><br><span class="line">+        <span class="keyword">case</span> (META_COMMAND_SUCCESS):</span><br><span class="line">+          <span class="keyword">continue</span>;</span><br><span class="line">+        <span class="keyword">case</span> (META_COMMAND_UNRECOGNIZED_COMMAND):</span><br><span class="line">+          <span class="built_in">printf</span>(<span class="string">"Unrecognized command '%s'\n"</span>, input_buffer-&gt;buffer);</span><br><span class="line">+          <span class="keyword">continue</span>;</span><br><span class="line">+      &#125;</span><br><span class="line">+    &#125;</span><br><span class="line">+</span><br><span class="line">+    Statement statement;</span><br><span class="line">+    <span class="keyword">switch</span> (prepare_statement(input_buffer, &amp;statement)) &#123;</span><br><span class="line">+      <span class="keyword">case</span> (PREPARE_SUCCESS):</span><br><span class="line">+        <span class="keyword">break</span>;</span><br><span class="line">+      <span class="keyword">case</span> (PREPARE_SYNTAX_ERROR):</span><br><span class="line">+	<span class="built_in">printf</span>(<span class="string">"Syntax error. Could not parse statement.\n"</span>);</span><br><span class="line">+	<span class="keyword">continue</span>;</span><br><span class="line">+      <span class="keyword">case</span> (PREPARE_UNRECOGNIZED_STATEMENT):</span><br><span class="line">+        <span class="built_in">printf</span>(<span class="string">"Unrecognized keyword at start of '%s'.\n"</span>,</span><br><span class="line">+               input_buffer-&gt;buffer);</span><br><span class="line">+        <span class="keyword">continue</span>;</span><br><span class="line">+    &#125;</span><br><span class="line">+</span><br><span class="line">+    <span class="keyword">switch</span> (execute_statement(&amp;statement, table)) &#123;</span><br><span class="line">+	<span class="keyword">case</span> (EXECUTE_SUCCESS):</span><br><span class="line">+	    <span class="built_in">printf</span>(<span class="string">"Executed.\n"</span>);</span><br><span class="line">+	    <span class="keyword">break</span>;</span><br><span class="line">+	<span class="keyword">case</span> (EXECUTE_TABLE_FULL):</span><br><span class="line">+	    <span class="built_in">printf</span>(<span class="string">"Error: Table full.\n"</span>);</span><br><span class="line">+	    <span class="keyword">break</span>;</span><br><span class="line">     &#125;</span><br><span class="line">   &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/翻译/" rel="tag"># 翻译</a>
+              <a href="/tags/Database/" rel="tag"># Database</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/04/12/057-travis-troubleshooting/" rel="prev" title="hexo next 主题通过 travis ci 执行 hexo generate 报错">
+      <i class="fa fa-chevron-left"></i> hexo next 主题通过 travis ci 执行 hexo generate 报错
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/05/09/058-simple-database-4/" rel="next" title="Let's Build a Simple Database - Our First Tests(and Bugs)">
+      Let's Build a Simple Database - Our First Tests(and Bugs) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Win-Man"
+      src="/images/pig.jpeg">
+  <p class="site-author-name" itemprop="name">Win-Man</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">61</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">38</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Win-Man" title="GitHub → https://github.com/Win-Man" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:gang.shen0423@gmail.com" title="E-Mail → mailto:gang.shen0423@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/2855803080" title="Weibo → https://weibo.com/2855803080" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>Weibo</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://blog.csdn.net/win_man" title="http://blog.csdn.net/win_man" rel="noopener" target="_blank">CSDN博客</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Win-Man</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+  <div style="display: none;">
+    <script src="//s95.cnzz.com/z_stat.php?id=1260159928&web_id=1260159928"></script>
+  </div>
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
